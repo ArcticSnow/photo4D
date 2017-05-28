@@ -31,10 +31,7 @@ The project should be based on open-source libraries, for public release.
 
 ## Ressources:
 
-    - (Micmac)[1]
+    - Micmac: http://micmac.ensg.eu/index.php/Accueil
     - relevant publications saved in Google drive
     - Image processing images: skimage, openCV, Pillow
-    - [rawpy, a package to open raw images in Python][1]
-
-
-  [1]: https://pypi.python.org/pypi/rawpy
+    - rawpy, a package to open raw images in Python: https://pypi.python.org/pypi/rawpy
