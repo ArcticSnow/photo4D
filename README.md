@@ -10,7 +10,7 @@ Guillaume Sutter (sutterguigui@gmail.com)
  3. improve design (targets, camera set up and settings, image preprocessing, number of camera...)
  4. Assess accuracy, precision: compare to lidar, dGPS snow-deph measurements. What paramters have the largest influence on the results
  5. try automating every steps of the algorithm, and combine scripts into one program (app)
- 5. Success??!
+ 6. Success??!
 
 ## Description
 
@@ -20,12 +20,12 @@ The project should be based on open-source libraries, for public release.
 
 ## Strategy
 
-1- open RAW on Python and split image between snow area and other using threshold
-2- expose using histogram equalizer both masked selection
-3- recombine image to run through Micmac
+1. open RAW on Python and split image between snow area and other using threshold
+2. expose using histogram equalizer both masked selection
+3. recombine image to run through Micmac
 
-4- run micmac script using different parameter (number of pics, position of camera, exposition
-5- estimate model error against (lidar?)
+4. run micmac script using different parameter (number of pics, position of camera, exposition
+5. estimate model error against (lidar?). Test Micmac method on a scene with no snow
 
 
 
