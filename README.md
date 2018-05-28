@@ -1,7 +1,11 @@
 # Project obtain 4D data for snowmelt
 
 Simon Filhol (simon.filhol@geo.uio.no)
+
 Guillaume Sutter (sutterguigui@gmail.com)
+
+Alexis Perret ()
+
 
 ## Objectives
 
