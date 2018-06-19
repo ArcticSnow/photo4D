@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF_8"?>
+<DicoAppuisFlottant>
+  <OneAppuisDAF>
+    <Pt>-23.4605861800590318 1.71111440194407338 26.4778679705422384</Pt>
+    <NamePt>1</NamePt>
+    <Incertitude>1 1 1</Incertitude>
+  </OneAppuisDAF>
+  <OneAppuisDAF>
+    <Pt>15.9331147514487199 -5.33682558320814415 102.277413480224084</Pt>
+    <NamePt>1</NamePt>
+    <Incertitude>1 1 1</Incertitude>
+  </OneAppuisDAF>
+</DicoAppuisFlottant>
