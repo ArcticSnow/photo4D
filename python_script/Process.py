@@ -11,6 +11,8 @@ from shutil import copyfile
 
 
 
+
+
 def sort_pictures(folder_path_list, ext="jpg", time=600):
     print("Collecting files\n..........................................")
     ext = ext.lower()
