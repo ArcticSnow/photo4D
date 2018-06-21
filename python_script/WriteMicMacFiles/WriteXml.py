@@ -1,6 +1,8 @@
 # coding :utf8
 
 from lxml import etree
+import os
+
 
 def write_S3D_xmlfile(list_pt_measures, file_name):
     """
@@ -75,15 +77,88 @@ def write_S2D_xmlfile(list_img_measures, file_name):
         exit(1)
 
 
+def change_Ori(initial_pictures, final_pictures, ori_folder_path):
+    """
+    Changes all the files of an Ori- folder from MicMac, in the way that every reference to initial pictures
+    is replaced by reference to final_pictures
+    WARNING this will totally modify the folder without backup of the initial one, think about make a copy first
+    :param initial_pictures: list of initial pictures to be replaced, in the same order as the final one
+    :param final_pictures: list of initial pictures to be replaced, in the same order as the final one
+    :param ori_folder_path: path of the orientation folder (name beginning with Ori- )
+    """
+    if ori_folder_path[-1] != '/': ori_folder_path += "/"
+    if ori_folder_path.split('/')[-2][0:4] != "Ori-":
+        print("Ori path is not valid : {}\nYou need to enter the path to the Ori-folder ".format(ori_folder_path))
+        exit(1)
+    elif len(initial_pictures) != len(final_pictures):
+        print("List of input and output pictures must have the same size")
+        exit(1)
+    nb_pictures = len(initial_pictures)
+
+
+    write_SEL_Xml(ori_folder_path + "FileImSel.xml", final_pictures)
+    with open(ori_folder_path + 'Residus.xml', 'r') as file:
+        filedata = file.read()
+    for i in range(nb_pictures):
+        # Replace the target string
+        filedata = filedata.replace(initial_pictures[i], final_pictures[i])
+    # Write the file out again
+    with open(ori_folder_path + 'Residus.xml', 'w') as file:
+        file.write(filedata)
+
+
+    for j in range(nb_pictures):
+        if os.path.exists(ori_folder_path + 'ImSec-{}.xml'.format(initial_pictures[j])):
+            # Read in the file ImSec
+            with open(ori_folder_path + 'ImSec-{}.xml'.format(initial_pictures[j]), 'r') as file:
+                filedata = file.read()
+            os.remove(ori_folder_path + 'ImSec-{}.xml'.format(initial_pictures[j]))
+            for i in range(nb_pictures):
+                # Replace the target string
+                filedata = filedata.replace(initial_pictures[i], final_pictures[i])
+            # Write the file out again
+            with open(ori_folder_path + 'ImSec-{}.xml'.format(final_pictures[j]), 'w') as file:
+                file.write(filedata)
+
+        # rename Orientation files
+        if os.path.exists(ori_folder_path + 'Orientation-{}.xml'.format(initial_pictures[j])):
+            os.rename(ori_folder_path + 'Orientation-{}.xml'.format(initial_pictures[j]),
+                      ori_folder_path + 'Orientation-{}.xml'.format(final_pictures[j]))
+
+    with open(ori_folder_path + "log.txt",'w') as log:
+        log.write("This orientation was not calculated by MicMac with these pictures\n\n")
+        log.write("The names of pictures were just changed \n\n")
+        for i in range(nb_pictures):
+            log.write("{} was replaced by {}\n".format(initial_pictures[i], final_pictures[i]))
+
+def write_SEL_Xml(Xml_path, picture_list):
+    root = etree.Element('ListOfName')
+    for img in picture_list:
+        name = etree.SubElement(root, 'Name')
+        name.text = str(img)
+    try:
+        # We open the file for writing
+        with open(Xml_path, 'w') as file:
+            # Header
+            file.write('<?xml version="1.0" encoding="UTF_8"?>\n')
+            # Writing all the text we created
+            file.write(etree.tostring(root, pretty_print=True).decode('utf-8'))
+    except IOError:
+        print('Error while writing file')
+        exit(1)
+
+
 if __name__ == "__main__":
     liste_mesures = [['DSC00047.JPG', [['1', '5155.32345161082321 1709.62885559043229']]],
                      ['DSC00048.JPG', [['1', '5223.24245336298645 1654.30485908846413']]],
                      ['DSC00049.JPG', [['1', '5225.28907384436934 1935.98648985141676']]],
                      ['DSC00050.JPG', []]]
 
-    write_S2D_xmlfile(liste_mesures, 'Appuis_fictifs-S2D.xml')
+    # write_S2D_xmlfile(liste_mesures, 'Appuis_fictifs-S2D.xml')
 
     liste_points3D = [['1', "-23.4605861800590318 1.71111440194407338 26.4778679705422384", "1 1 1"],
                       ['1', "15.9331147514487199 -5.33682558320814415 102.277413480224084"]]
 
-    write_S3D_xmlfile(liste_points3D, 'Appuis_fictifs-S3D.xml')
+    # write_S3D_xmlfile(liste_points3D, 'Appuis_fictifs-S3D.xml')
+    change_Ori(["DSC00859.JPG", "DSC01960.JPG", "DSC03475.JPG"], ["DSC00855.JPG", "DSC01956.JPG", "DSC03471.JPG"],
+               "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-11_13-16/Ori-RadialStd/")
