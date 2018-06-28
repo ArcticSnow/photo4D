@@ -4,6 +4,8 @@ from lxml import etree
 import os
 import pandas as pd
 import numpy as np
+import cv2 as cv
+from matplotlib import pyplot as plt
 
 
 # todo finir la traduction
@@ -38,7 +40,7 @@ def residual2txt(ori_folder_path, xmlfile='Residus.xml', output_folder_path="", 
         # Getting number of iterations
         nb_iters = tree.xpath("/XmlSauvExportAperoGlob/Iters/NumIter")[-1].text
         file.write('nb_iters' + sep + nb_iters + '\n')
-        dict['nb_iters']=int(nb_iters)
+        dict['nb_iters'] = int(nb_iters)
         # Recuperation de la moyenne des residus de la derniere iteration
         av_resid = tree.xpath("/XmlSauvExportAperoGlob/Iters[NumIter={}][NumEtape=3]/\
                                     AverageResidual".format(nb_iters))[0].text
@@ -53,7 +55,7 @@ def residual2txt(ori_folder_path, xmlfile='Residus.xml', output_folder_path="", 
                 obj += img.find(e).text + sep
             file.write(obj + '\n')
             image_name = obj.split(sep)[0]
-            dict[image_name]=obj.split(sep)[1:-1]
+            dict[image_name] = obj.split(sep)[1:-1]
     except OSError:
         print("WARNING Can't open the file " + ori_folder_path + xmlfile)
         return 1
@@ -62,6 +64,46 @@ def residual2txt(ori_folder_path, xmlfile='Residus.xml', output_folder_path="", 
 
     file.close()
     return dict
+
+def read_S2D_xmlfile(filepath,disp=False, img_path=None):
+    list_img_measures = []
+    with open(filepath,'r') as xml:
+        # Parsing of xml
+        tree = etree.parse(filepath)
+
+        for image in tree.xpath("/SetOfMesureAppuisFlottants/MesureAppuiFlottant1Im/NameIm"):
+            list_measures =[]
+            for measure in tree.xpath(
+                    "/SetOfMesureAppuisFlottants/MesureAppuiFlottant1Im[NameIm='DSC00859.JPG']/OneMesureAF1I"):
+                list_measures.append((measure[0].text, measure[1].text))
+            list_img_measures.append([image.text,list_measures])
+
+    if disp:
+
+        img=cv.imread(img_path)
+
+        found=False
+        for image in list_img_measures:
+            if image[0]== img_path.split('/')[-1]:
+                for mes in image[1]:
+                    point_name = mes[0]
+                    x,y = mes[1].split(' ')
+                    pos = (int(float(x)),int(float(y)))
+                    pos_up = pos[0] + 500,pos[1] + 500
+                    cv.arrowedLine(img, pos_up,pos, 255, 4)
+                    cv.putText(img, point_name, pos, cv.FONT_HERSHEY_SIMPLEX,
+                                    5,(0, 255, 255),thickness=10)
+                found=True
+        if not found: print("Cannot find measure for image " + img_path)
+        else:
+            #cv.namedWindow('Result', cv.WINDOW_NORMAL)
+            #cv.imshow('Result',img)
+            #cv.waitKey(0)
+            #cv.destroyAllWindows()
+            plt.imshow(img)
+            plt.show()
+    return list_img_measures
+
 
 
 def count_tiepoints_from_txt(main_folder_path):
@@ -83,19 +125,20 @@ def count_tiepoints_from_txt(main_folder_path):
     for folder in folder_list:
         file_list = os.listdir(main_folder_path + folder)
         for filename in file_list:
-            file = open(main_folder_path + folder + "/" + filename, 'r')
+            if filename.split('.')[-1] == 'txt':
+                file = open(main_folder_path + folder + "/" + filename, 'r')
 
-            # basically just counting the number of row in each file
-            i = 0
-            for line in file.readlines():
-                i += 1
-                s+=1
-            df.loc[folder[6:], filename.rstrip('.txt')] = i
-
+                # basically just counting the number of row in each file
+                i = 0
+                for line in file.readlines():
+                    i += 1
+                    s += 1
+                df.loc[folder[6:], filename.rstrip('.txt')] = i
     return df.head(), s
 
 
 if __name__ == "__main__":
-    #count_tiepoints_from_txt(
+    # count_tiepoints_from_txt(
     #    "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/MicMac_Test_06_11-22h/")
-    print(residual2txt("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-11_17-16/Ori-RadialStd/"))
+    read_S2D_xmlfile("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-11_17-16/Mesures_Appuis-S2D.xml",
+    disp=True,img_path="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-11_17-16/DSC00859.JPG")

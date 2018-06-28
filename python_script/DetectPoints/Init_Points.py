@@ -1,17 +1,18 @@
 # coding : uft8
 import time
 import os
-from lxml import etree
+from WriteMicMacFiles import ReadXml as rxml
 import cv2 as cv
 import numpy as np
+from pictures_process.Handle_Exif import load_date
 
 
-def init_Points(folder_path, image, points=None):
+def init_Points(folder_path, image, points=None,sample_path=""):
     """
 
     :param folder_path:
     :param image:
-    :param points: name of MicMac xml s2D file, or numer of points
+    :param points: name of MicMac xml s2D file, or number of points
     :return:
     """
     if points is None:
@@ -26,7 +27,7 @@ def init_Points(folder_path, image, points=None):
             list_pos = pos_from_xml_s2D(xml_s2D, folder_path)
         except OSError:
             print("The xml file don't exist or isn't valid")
-            ans = input("Do you want to pick manually the points ? (y/n")
+            ans = input("Do you want to pick manually the points ? (y/n) :  ")
             if ans == 'y':
                 xml_s2D = pick_points(0, folder_path, image_path=image)
                 list_pos = pos_from_xml_s2D(xml_s2D, folder_path)
@@ -35,7 +36,7 @@ def init_Points(folder_path, image, points=None):
     else:
         raise TypeError ("Param points must be either string or integer")
 
-    create_samples(list_pos, image, image_path=folder_path)
+    create_samples(list_pos, image, image_path=folder_path,sample_path=sample_path)
     dist_matrix = create_dist_matrix(list_pos)
     return list_pos, dist_matrix
 
@@ -68,33 +69,31 @@ def pick_points(nb_points, folder_path, image_path="", xml_name="selection", ori
     return real_xml_name
 
 
-def pos_from_xml_s2D(xml, path, one_image=True):
+def pos_from_xml_s2D(xml_path, one_image=True):
     """
     BEWARE ! This function is not finalised at all and will crash for many reasons
-    :param xml:
-    :param path:
+    :param xmlpath:
     :param one_image True if the measures are taken from only one image
     :return: list of the measures of points
     """
-    xmlFile = path + xml
-    context = etree.iterparse(xmlFile)
-    list_measures = []
+
+    list_img_measures = rxml.read_S2D_xmlfile(xml_path)
     if one_image:
-        image_select = ""
-        for action, elem in context:
-            if elem.tag == "PtIm":
-                meas = elem.text.split(' ')
-                list_measures.append([float(meas[0]), float(
-                    meas[1])])  # todo verifier que la conversion en float est bien utile pour la suite
-            if elem.tag == "NameIm":
-                if image_select == "":
-                    image_select = elem.text
-                elif image_select != elem.text:
-                    raise IOError('More than one image was measured')
+        if len(list_img_measures) != 1:
+            print("ERROR More than one image in xmlfile")
+            return None,list_img_measures
+        else:
+            pos=[]
+            for point in list_img_measures[0][1]:
+                meas = point[1].split(' ')
+                pos.append([float(meas[0]), float(meas[1])])
+            print(pos)
+            print(" List of point measured : " + str(list_img_measures))
+            return pos,list_img_measures
     else:
-        print("Not implemented yet")
-    print(" List of point measured : " + str(list_measures))
-    return list_measures
+        print("didn't know if we will need it")
+    print(" List of point measured : " + str(list_img_measures))
+    return list_img_measures
 
 
 pos = [[958, 1719], [2678, 1276], [696, 1406], [4675, 1753], [3560, 2354]]
@@ -110,7 +109,8 @@ def create_samples(list_pos, image, size_sample=10, image_path="", sample_path="
     """
     img = cv.imread(image_path + image)
     img_size = img.shape
-
+    report = "Automatic creation of samples pictures from " + image +"\n\n"
+    report += "Samples are taken on " + str(load_date(image_path+image) + "\n")
     # create the file for samples
     if sample_path == "":
         sample_path = image_path + "Samples/"
@@ -124,7 +124,12 @@ def create_samples(list_pos, image, size_sample=10, image_path="", sample_path="
         sample = img[minx:maxx, miny:maxy, :]
 
         cv.imwrite(sample_path + 'sample_' + str(id) + '.jpg', sample)
+        report+="image {} ({},{}) for point situated at  "
         id += 1
+
+    with open("creation_samples.txt",'w') as log:
+        log.write(report)
+
 def create_dist_matrix(samples_position_ini):
     """
     Compute the distance matrix between samples (in pixels)
@@ -160,7 +165,10 @@ if __name__ == "__main__":
     #               'DSC00916_11h30.JPG',
     #               image_path='C:/Users/Alexis/Documents/Travail/Stage_Oslo/Test_scene_blindern/Pictures/ByCam/Cam1/')
 
-    init_Points("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Test_scene_blindern/Pictures/ByCam/Cam2/","DSC00918_11h30.JPG",4)
+    pos_from_xml_s2D("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/plus de cam est/Mesures_Appuis-S2D.xml",one_image=True)
+    #init_Points("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/plus de cam est/","DSC00859.JPG",
+    #            "Mesures_Appuis-S2D.xml",sample_path="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/plus de cam est/Samplesbis/")
+
     toc = time.time()
     temps = abs(toc - tic)
     print("Executed in {} seconds".format(round(temps, 3)))

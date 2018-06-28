@@ -5,6 +5,8 @@ import time
 import os
 import WriteMicMacFiles.WriteXml as wxml
 import DetectPoints.Init_Points as ini
+import pandas as pd
+from pictures_process.Handle_Exif import load_date
 
 
 def detect_folder_opencv(query_folder, folder_path, pos, dist_matrix, method=cv.TM_CCORR_NORMED, save_res=False,
@@ -81,6 +83,7 @@ def detect_folder_opencv(query_folder, folder_path, pos, dist_matrix, method=cv.
                                 min = elem[0]
                                 min_loc = elem[1]
                         top_left = min_loc
+                    # else take maximum
                     else:
                         max = list_correl[0][0]
                         max_loc = list_correl[0][1]
@@ -102,25 +105,33 @@ def detect_folder_opencv(query_folder, folder_path, pos, dist_matrix, method=cv.
                         cv.imwrite(path + filename + "detect.jpg", img_scene)
 
                     new_pos = (int(top_left[0] + sample_size/2), int(top_left[1] + sample_size/2))
+                    list_tot.append((
+                        filename, sample_name, new_pos[0], new_pos[1], pos_ini[0], pos_ini[1],
+                        abs(pos_ini[0] - new_pos[0]), abs(pos_ini[1] - new_pos[1]),
+                        load_date(path)))
                     print("File n°{}, {}, processed for point {}".format(iter, filename, sample_name))
-                    print("Difference between the initial position and the detected one : horizontally: {} vertically: {}\nn ".format(abs(pos_ini[0] - new_pos[0]),abs(pos_ini[1] - new_pos[1])))
+                    print("Difference between the initial position and the detected one : horizontally: {} vertically: {}\n ".format(abs(pos_ini[0] - new_pos[0]),abs(pos_ini[1] - new_pos[1])))
                     iter +=1
 
         except IndexError:
             pass
+    return list_tot
 
 
 if __name__ == "__main__":
     tic = time.time()
-    pos = [(2970,1770), (2405, 1234), (781,1669),(820, 2785)]
+    pos = [[4753.29546896857, 1357.9374323565303], [2493.0827537500754, 1430.8555416815643], [1666.5516296320127, 1109.5965153846973], [1631.525481140865, 1022.2998483754077], [919.3773780021664, 1001.308308041519], [4080.450080645721, 1242.990830131865], [3529.443250966903, 1237.365358178684]]
     dist = ini.create_dist_matrix(pos)
     list = detect_folder_opencv(
-        "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Test_scene_blindern/Pictures/ByCam/Cam2/Samples/",
-        "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Test_scene_blindern/Pictures/ByCam/Cam2/",
+        "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/plus de cam est/Samples/",
+        "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/plus de cam est/",
         pos, dist,
         cv.TM_CCORR_NORMED,save_res=False)
     # wxml.write_S2D_xmlfile(list, 'C:/Users/Alexis/Documents/Travail/Stage_Oslo/Donees_Guillaume/Data/TimeLapse/Finseelvi/20170601_0602_Cam_North/Processed/Temp/Appuis_fictifs-S2D.xml')
-
+    labels = ['Image name', 'Sample name', 'X calc', 'Y calc', "X ini", "Y ini", "diff X", "diff Y", "date"]
+    df = pd.DataFrame.from_records(list, columns=labels)
+    df.to_csv('C:/Users/Alexis/Documents/Travail/Stage_Oslo/Scripts_Python/Stats/test1_cam_east.csv', sep=',',
+              encoding='utf-8')
     toc = time.time()
     temps = abs(toc - tic)
     print("Executed in {} seconds".format(round(temps, 3)))

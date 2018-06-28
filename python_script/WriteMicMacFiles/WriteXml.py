@@ -146,6 +146,19 @@ def write_SEL_Xml(Xml_path, picture_list):
     except IOError:
         print('Error while writing file')
         exit(1)
+def change_xml(initial_pictures, final_pictures, xml_path):
+    nb_pictures = len(initial_pictures)
+    # Read in the file ImSec
+    with open(xml_path, 'r') as file:
+        filedata = file.read()
+        print("ici")
+    for i in range(nb_pictures):
+        # Replace the target string
+        print("remplacement de " + initial_pictures[i]  + " par " + final_pictures[i])
+        filedata = filedata.replace(initial_pictures[i], final_pictures[i])
+    # Write the file out again
+    with open(xml_path, 'w') as file:
+        file.write(filedata)
 
 
 if __name__ == "__main__":
@@ -160,5 +173,5 @@ if __name__ == "__main__":
                       ['1', "15.9331147514487199 -5.33682558320814415 102.277413480224084"]]
 
     # write_S3D_xmlfile(liste_points3D, 'Appuis_fictifs-S3D.xml')
-    change_Ori(["DSC00859.JPG", "DSC01960.JPG", "DSC03475.JPG"], ["DSC00855.JPG", "DSC01956.JPG", "DSC03471.JPG"],
-               "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-11_13-16/Ori-RadialStd/")
+    change_xml(["DSC00859.JPG", "DSC01960.JPG", "DSC03475.JPG"], ["pattate", "frite", "etc"],
+               "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-11_17-16/Mesures_Appuis-S2D.xml")

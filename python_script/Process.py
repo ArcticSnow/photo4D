@@ -131,8 +131,9 @@ def pictures_array_from_file(filepath):
         return np.array(all_lines)
 
 
-def copy_and_process(filepath_list, main_folder, folder_name="TMP_MicMac", image_path=".*JPG", resol=2000,
-                     distortion_model="RadialStd", C3DC_type="MicMac", InCal=None, InOri=None, pictures_Ori=None):
+def copy_and_process(filepath_list, main_folder, folder_name="TMP_MicMac", image_path=".*JPG", resol=5000,
+                     distortion_model="RadialStd", C3DC_type="BigMac", InCal=None, InOri=None, GCP=None,
+                     GCP_S2D=None, pictures_Ori=None, GCP_pictures=None):
     date = load_date(filepath_list[0])
     if date is not None:
         date_str = "{}-{}-{}_{}-{}".format(date.year, date.month, date.day, date.hour, date.minute)
@@ -154,6 +155,12 @@ def copy_and_process(filepath_list, main_folder, folder_name="TMP_MicMac", image
     command = 'mm3d Tapioca All "{}" {} ExpTxt=1'.format(image_path, resol)
     print(command)
     os.system(command)
+    # second detection of Tie points at a lower resolution, without ExpTxt=1, just to avoid a stupid MicMac bug in C3DC
+    os.chdir(folder_path)
+    command = 'mm3d Tapioca All "{}" 1000'.format(image_path)
+    print(command)
+    os.system(command)
+
     # relative orientation
     if InOri is not None:
         final_pictures = []
@@ -161,10 +168,10 @@ def copy_and_process(filepath_list, main_folder, folder_name="TMP_MicMac", image
         if not os.path.exists(new_Ori_path):
             copytree(InOri, new_Ori_path)  # We assume that the path is correctly written ( "/fgg/Ori-Truc/")
         for filepath in filepath_list:
-            final_pictures.append (filepath.split("/")[-1])
+            final_pictures.append(filepath.split("/")[-1])
         print(pictures_Ori)
         print(final_pictures)
-        wxml.change_Ori(pictures_Ori, final_pictures,new_Ori_path)
+        wxml.change_Ori(pictures_Ori, final_pictures, new_Ori_path)
 
     elif InCal is not None:
         new_Cal_path = folder_path + InCal.split('/')[-2] + "/"
@@ -179,16 +186,33 @@ def copy_and_process(filepath_list, main_folder, folder_name="TMP_MicMac", image
         print(command)
         os.system(command)
         # todo rajouter figee
+    if GCP is None:
+        ori = distortion_model  # default name of output from Tapas
+    else:
+        GCP_xml = GCP.split('/')[-1]
+        if GCP != folder_path + GCP_xml:
+            copyfile(GCP, folder_path + GCP_xml)
+        GCP_S2D_xml = GCP_S2D.split('/')[-1]
+        if GCP_S2D != folder_path + GCP_S2D_xml:
+            copyfile(GCP_S2D, folder_path + GCP_S2D_xml)
+            print("HEYY!!\n"+ str(GCP_pictures) + str(final_pictures) + folder_path+GCP_S2D_xml)
+            wxml.change_xml(GCP_pictures, final_pictures, folder_path + GCP_S2D_xml)  # todo pas forcément assignées
 
+        command = 'echo | mm3d GCPBascule {} {} Bascule {} {}'.format(image_path,
+                                                                      distortion_model,
+                                                                      GCP_xml,
+                                                                      GCP_S2D_xml)  # todo rajouter option picking ?
+        os.system(command)
+        ori = 'Bascule'
 
     # making Tie points cloud
     # here distortion_model is just the Orientation folder default name, from previous step
-    command = 'echo | mm3d AperiCloud "{}" {} ExpTxt=1'.format(image_path, distortion_model)
+    command = 'echo | mm3d AperiCloud "{}" {} ExpTxt=1'.format(image_path, ori)
     print(command)
     os.system(command)
 
     ply_name = date_str + "_" + C3DC_type + ".ply"  # todo le mettre en parametre
-    command = 'echo | mm3d C3DC {} "{}" {} ExpTxt=1 Out={}'.format(C3DC_type, image_path, distortion_model, ply_name)
+    command = 'echo | mm3d C3DC {} "{}" {} ExpTxt=1 Out={} OffsetPly=[410000,6710000,0]'.format(C3DC_type, image_path, ori, ply_name)
     print(command)
     os.system(command)
     os.system('exit')
@@ -223,15 +247,15 @@ def copy_and_process(filepath_list, main_folder, folder_name="TMP_MicMac", image
 
     # delete temporary MicMac Files todo plutôt supprimer le dossier entier
     try:
-        rmtree(folder_path + "Tmp-MM-Dir")
-        rmtree(folder_path + "Ori-InterneScan")
-        rmtree(folder_path + "Homol")
-        rmtree(folder_path + "Pastis")
-        rmtree(folder_path + "Pyram")
-        rmtree(folder_path + "PIMs-" + C3DC_type)
-        os.remove(folder_path + "cAppliMMByPair_0")
-        os.remove(folder_path + "MMByPairCAWSI.xml")
-        os.remove(folder_path + "MMByPairFiles.xml")
+        #rmtree(folder_path + "Tmp-MM-Dir")
+        #rmtree(folder_path + "Ori-InterneScan")
+        #rmtree(folder_path + "Homol")
+        #rmtree(folder_path + "Pastis")
+        #rmtree(folder_path + "Pyram")
+        #rmtree(folder_path + "PIMs-" + C3DC_type)
+        #os.remove(folder_path + "cAppliMMByPair_0")
+        #os.remove(folder_path + "MMByPairCAWSI.xml")
+        #os.remove(folder_path + "MMByPairFiles.xml")
         os.remove(folder_path + "SauvApero.xml")  # todo peut être laisser celui là
         os.remove(folder_path + "WarnApero.txt")
     except FileNotFoundError:
@@ -260,8 +284,9 @@ def main_GCP_estim(folder_path, image, points=0):
 
 
 def process_from_array(main_folder_path, secondary_folder_list, pictures_array, InCal=None, InOri=None,
-                       pictures_Ori=None):
+                       pictures_Ori=None, GCP=None, GCP_S2D=None, GCP_pictures = None):
     if InOri is not None and pictures_Ori is None:  # todo cela sous entend que l'orientation initiale fait parti de la liste, c'est un peu débile
+        # basically all of this aims at finding the order of pictures used for orientation (ie their initial camera)
         flist = os.listdir(InOri)
         image = ""
         for file in flist:
@@ -281,6 +306,27 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
             i += 1
         pictures_Ori = pictures_array[i - 1, 1:]
         print(pictures_Ori)
+    if GCP is not None and GCP_pictures is None:
+        # basically all of this aims at finding the order of pictures used for orientation (ie their initial camera)
+        flist = os.listdir(GCP_S2D[:-len(GCP_S2D.split('/')[-1])])
+        image = ""
+        for file in flist:
+            if file.split('.')[-1].lower() == "jpg":# todo qu'est ce que c'est moche
+                image = file
+                break
+        print(image)
+        I, J = pictures_array.shape
+        i = 0
+        found = False
+        while i < I and not found:
+            j = 1
+            while j < J and not found:
+                if pictures_array[i, j] == image:
+                    found = True
+                j += 1
+            i += 1
+        GCP_pictures = pictures_array[i - 1, 1:]
+        print(GCP_pictures)
 
     for line in pictures_array:
         if line[0]:
@@ -290,7 +336,8 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
 
             copy_and_process(
                 list_path,
-                main_folder_path, InCal=InCal, InOri=InOri, pictures_Ori=pictures_Ori)
+                main_folder_path, InCal=InCal, InOri=InOri, pictures_Ori=pictures_Ori, GCP=GCP, GCP_S2D=GCP_S2D,
+                GCP_pictures=GCP_pictures)
 
 
 if __name__ == "__main__":
@@ -308,8 +355,10 @@ if __name__ == "__main__":
     folders = ["cam_est/", "cam_ouest/", "cam_mid/"]
     main_folder_path = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/"
     process_from_array(main_folder_path, folders, array,
-                       InOri="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-12_8-16/Ori-RadialStd/")
-    #copy_and_process(["C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/Cam_est/DSC00876.JPG",
+                       InOri="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-12_8-16/Ori-RadialStd/",
+                       GCP="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-11_17-16/Pt_gps_gcp.xml",
+                       GCP_S2D="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-11_17-16/Mesures_Appuis-S2D.xml")
+    # copy_and_process(["C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/Cam_est/DSC00876.JPG",
     #                  "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/Cam_ouest/DSC01977.JPG",
     #                  "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/Cam_mid/DSC03492.JPG"],
     #                 "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/",

@@ -1,26 +1,38 @@
 # coding : utf8
 import cv2 as cv
 from matplotlib import pyplot as plt
-
-method=cv.TM_CCORR_NORMED
-img = cv.imread("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Test_scene_blindern/Pictures/ByCam/Cam2/DSC00918_11h30.JPG")
+import shutil
 
 
-list_vide= []
-list_vide.append(["frite",[[img,1]]])
-list_vide.append(["fritebis",[[img,2]]])
+def read_txt_gps(path):
+    keep = True
+    while keep:
+        i_min = int(input("indice minimum : "))
+        i_max = int(input("indice maximum : "))
+        file=open(path,'r')
+        list_lines = file.readlines()
+        file.close()
+        print("file read")
+        i = 1
+        s_n,s_e,s_h =0,0,0
+        compt = 0
+        lenght = len(list_lines)
+        while i<lenght and i<=i_max:
+            if i>= i_min:
+                compt +=1
+                line = list_lines[i-1].split(',')
+                s_n += float(line[2])
+                s_e += float(line[3])
+                s_h+= float(line[4].rstrip('\n'))
+            i+=1
+        n = s_n/compt
+        e = s_e/compt
+        h = s_h/compt
+        print(n,e,h)
 
-for frite in list_vide:
-    print(frite[0])
-    print(frite[1][0][1])
+        ans = input("Continue ?  (y/n)")
+        if ans != 'y':
+            keep = False
 
-#cv.imwrite("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Test_scene_blindern/Pictures/ByCam/Cam2/DSC00918_11h30_cropped.JPG", petite)
-
-
-"""
-fig,ax = plt.subplots(2,1)
-ax[0].imshow(petite)
-ax[0].set_title('sample')
-ax[1].imshow(petite_ini)
-ax[1].set_title('ini')
-plt.show()"""
+if __name__ == "__main__":
+    print(read_txt_gps("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/GCP/to_read.csv"))
