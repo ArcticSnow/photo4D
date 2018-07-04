@@ -4,7 +4,7 @@ Simon Filhol (simon.filhol@geo.uio.no)
 
 Guillaume Sutter (sutterguigui@gmail.com)
 
-Alexis Perret ()
+Alexis Perret (aperret2010@hotmail.fr)
 
 
 ## Objectives
