@@ -12,10 +12,19 @@ from shutil import copyfile, rmtree, copytree
 import time
 
 
-def sort_pictures(folder_path_list, ext="jpg", time=600):
+def sort_pictures(folder_path_list, output_folder, ext="jpg", time=600):
+    """
+    Regroup pictures from different folders if they are taken within time seconds of interval.
+    Result is stored in an array/file,
+    :param folder_path_list:
+    :param output_folder:
+    :param ext:
+    :param time: interval in seconds, with corresponds to |time1 - time2|
+    :return:
+    """
     print("Collecting files\n..........................................")
     ext = ext.lower()
-    list = []
+    list = []  # containing an image_date_list for each folder
     for folder_path in folder_path_list:
         image_date_list = []
         flist = os.listdir(folder_path)
@@ -35,20 +44,24 @@ def sort_pictures(folder_path_list, ext="jpg", time=600):
 
     sorted_pictures = []
     print("Checking dates\n..........................................")
-    # loop on the image of the first folder
     with open("linkedFiles.txt", 'w') as f:
         f.write("# Pictures taken within {} of interval\n".format(time))
+
+    good, bad = 0, 0  # counters for correct and wrong sets
+    # loop on the image of the first folder
     for image_ref in list[0]:
         date_ref = image_ref[1]
         pic_group = np.empty(len(list) + 1, dtype=object)
         pic_group[0] = False  # the pic_group[0] is a boolean, True if all a picture is found in every folder
         pic_group[1] = image_ref[0]
-        for_file = [image_ref[0]]  # list of the images taken within the interval
+        # for_file = [image_ref[0]]  # list of the images taken within the interval
+
+        # check for pictures taken whithin the interval
         for j in range(1, len(list)):
-            folder = list[j]  # list of the filename of one folder
+            folder = list[j]  # list of the (filename,date) of one folder
             i, found = 0, False
             while not found and i < len(folder):  # todo retirer les images ?
-                date_var = load_date(folder_path_list[j] + folder[i][0])
+                date_var = folder[i][1]
                 diff = abs(date_ref - date_var)
                 if diff.days * 86400 + diff.seconds < time:  # if the two pictures are taken within 10 minutes
                     found = True
@@ -56,17 +69,25 @@ def sort_pictures(folder_path_list, ext="jpg", time=600):
                 i += 1
 
         if None not in pic_group:
+            good += 1
             pic_group[0] = True
             print("Pictures found in every folder corresponding to the time of " + pic_group[1] + "\n")
+            sorted_pictures.append(pic_group)
+            with open(output_folder + "linkedFiles.txt", 'a') as f:
+                f.write(str(pic_group[0]) + "," + ",".join(pic_group[1:]) + "\n")
         else:
+            bad += 1
             print("Missing picture(s) corresponding to the time of " + pic_group[1] + "\n")
-        sorted_pictures.append(pic_group)
-        with open("linkedFiles.txt", 'a') as f:
-            f.write(str(pic_group[0]) + "," + ",".join(pic_group[1:]) + "\n")
+
+    end_str = "{} good set of pictures found, {} uncomplete sets, with a total of {} sets".format(good, bad, good + bad)
+    print(end_str)
+    with open(output_folder + "linkedFiles.txt", 'a') as f:
+        f.write(end_str)
     return sorted_pictures
 
 
-def check_pictures(main_folder_path, secondary_folder_list, pictures_array, lum_inf, blur_inf):
+def check_pictures(main_folder_path, secondary_folder_list, output_folder, pictures_array, lum_inf, blur_inf,
+                   replace_log=True):
     """
     This function is supposed to be called after sort_pictures, as it uses the kind of array created by sort_pictures,
     which could be either collected from the return value of the function, or the file "linkedFiles.txt" created in
@@ -78,14 +99,20 @@ def check_pictures(main_folder_path, secondary_folder_list, pictures_array, lum_
     :param pictures_array:
     :param lum_inf:
     :param blur_min:
-    :return: same array
+    :return: same array, but some booleans will be False
     """
-    print("Checking dates\n..........................................")
-    # loop on the image of the first folder
-    with open("linkedFiles.txt", 'w') as f:
+    print("Checking pictures\n..........................................")
+
+    if replace_log:
+        log_name = "linkedFiles.txt"
+    else:
+        log_name = "linkedFiles_checked.txt"
+    with open(output_folder + log_name, 'w') as f:
         f.write(
             "# Pictures filtered with a minimum value of {} for brightness, {} for the variance of Laplacian\n".format(
                 lum_inf, blur_inf))
+
+    good, bad = 0, 0
     I, J = pictures_array.shape
     for i in range(I):
         if pictures_array[i, 0]:
@@ -94,18 +121,24 @@ def check_pictures(main_folder_path, secondary_folder_list, pictures_array, lum_
             for j in range(1, J):
                 path = main_folder_path + secondary_folder_list[j - 1] + pictures_array[i, j]
                 lum = load_lum(path)
+
                 if lum < min_lum:
                     min_lum = lum
                 blur = blurr(path, 3)
-                print(blur)
                 if blur < min_blur:
                     min_blur = blur
 
             if min_lum < lum_inf or min_blur < blur_inf:
                 pictures_array[i, 0] = False
-    with open(main_folder_path + "linkedFiles.txt", 'a') as f:
+                bad += 1
+            else:
+                good += 1
+
+    with open(output_folder + log_name, 'a') as f:
         for line in pictures_array:
             f.write(str(line[0]) + "," + ",".join(line[1:]) + "\n")
+        f.write(
+            "# {} good set of pictures found, {} rejected sets, with a total of {} sets".format(good, bad, good + bad))
     return pictures_array
 
 
@@ -131,24 +164,66 @@ def pictures_array_from_file(filepath):
         return np.array(all_lines)
 
 
-def copy_and_process(filepath_list, main_folder, folder_name="TMP_MicMac", image_path=".*JPG", resol=5000,
-                     distortion_model="RadialStd", C3DC_type="BigMac", InCal=None, InOri=None, GCP=None,
-                     GCP_S2D=None, pictures_Ori=None, GCP_pictures=None):
+def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",ply_name="", image_path=".*JPG", resol=-1,
+                     distortion_model="RadialStd", InCal=None, InOri=None, GCP=None,
+                     GCP_S2D=None, pictures_Ori=None, GCP_pictures=None, re_estimate=False,
+                     master_img=None, masqpath_list=[], DefCor=0):
+    """
+    copy needed files and process micmac for a set of given pictures
+
+
+    :param filepath_list: list of absolute path of pictures to process
+    :param output_folder:
+    :param tmp_folder_name:
+    :param ply_name: first part of the name of the output point-cloud, date and extension will be added by the function
+
+    MicMac parameters: (see more documentation on official github and wiki (hopefully))
+    :param image_path: todo retirer ça
+    :param resol:
+    :param distortion_model:
+    :param InCal:
+    :param InOri:
+    :param GCP:
+    :param GCP_S2D:
+    :param pictures_Ori:
+    :param GCP_pictures:
+
+    :param re_estimate:
+    :param master_img:
+    :param masqpath_list:
+    :param DefCor:
+    :return:
+    """
+
+    if not os.path.exists(output_folder): os.makedirs(output_folder)
+
     date = load_date(filepath_list[0])
     if date is not None:
         date_str = "{}-{}-{}_{}-{}".format(date.year, date.month, date.day, date.hour, date.minute)
-        folder_path = main_folder + folder_name + "_" + date_str + "/"
+        folder_path = output_folder + tmp_folder_name + "_" + date_str + "/"
     else:
-        folder_path = main_folder + folder_name + filepath_list[0].split('/')[-1]
+        folder_path = output_folder + tmp_folder_name + filepath_list[0].split('/')[-1]
         date_str = filepath_list[0].split('/')[-1]  # if we can't find a date, put the name of the first picture...
 
     if not os.path.exists(folder_path):
         os.mkdir(folder_path)
 
-    for filepath in filepath_list:
+    if masqpath_list != []:
+        if type(masqpath_list) != list or len(masqpath_list) != len(filepath_list):
+            print("Invalid value {} for parameter masqpath_list".format(masqpath_list))
+            print("Mask ignored")
+            masqpath_list = None
+
+    for i in range(len(filepath_list)):
+        filepath = filepath_list[i]
         filename = filepath.split("/")[-1]
-        if filepath != folder_path + filename:
+        if filepath != folder_path + filename:  # in case this set is the same as the initial
             copyfile(filepath, folder_path + filename)
+            if masqpath_list != []:
+                # copy the mask and gave it the default name of a mask created by MicMac
+                copyfile(masqpath_list[i], folder_path + '.'.join(filename.split('.')[:-1]) + "_Masq.tif")
+                copyfile('.'.join(masqpath_list[i].split('.')[:-1]) + '.xml',
+                         folder_path + '.'.join(filename.split('.')[:-1]) + "_Masq.xml")
 
     # detection of Tie points
     os.chdir(folder_path)
@@ -156,15 +231,14 @@ def copy_and_process(filepath_list, main_folder, folder_name="TMP_MicMac", image
     print(command)
     os.system(command)
     # second detection of Tie points at a lower resolution, without ExpTxt=1, just to avoid a stupid MicMac bug in C3DC
-    os.chdir(folder_path)
-    command = 'mm3d Tapioca All "{}" 1000'.format(image_path)
+    command = 'mm3d Tapioca All "{}" {}'.format(image_path, resol)
     print(command)
     os.system(command)
 
     # relative orientation
     if InOri is not None:
         final_pictures = []
-        new_Ori_path = folder_path + InOri.split('/')[-2] + "/"
+        new_Ori_path = folder_path + InOri.split('/')[-1] + "/"
         if not os.path.exists(new_Ori_path):
             copytree(InOri, new_Ori_path)  # We assume that the path is correctly written ( "/fgg/Ori-Truc/")
         for filepath in filepath_list:
@@ -172,6 +246,12 @@ def copy_and_process(filepath_list, main_folder, folder_name="TMP_MicMac", image
         print(pictures_Ori)
         print(final_pictures)
         wxml.change_Ori(pictures_Ori, final_pictures, new_Ori_path)
+        if re_estimate:
+            command = 'echo | mm3d Tapas {} "{}" InOri={} ExpTxt=1'.format(distortion_model, image_path,
+                                                                           InOri.split('/')[-1])
+            print(command)
+            os.system(command)
+        ori = InOri.split('/')[-1]
 
     elif InCal is not None:
         new_Cal_path = folder_path + InCal.split('/')[-2] + "/"
@@ -187,7 +267,8 @@ def copy_and_process(filepath_list, main_folder, folder_name="TMP_MicMac", image
         os.system(command)
         # todo rajouter figee
     if GCP is None:
-        ori = distortion_model  # default name of output from Tapas
+        if InOri is None:
+            ori = distortion_model  # default name of output from Tapas
     else:
         GCP_xml = GCP.split('/')[-1]
         if GCP != folder_path + GCP_xml:
@@ -195,8 +276,8 @@ def copy_and_process(filepath_list, main_folder, folder_name="TMP_MicMac", image
         GCP_S2D_xml = GCP_S2D.split('/')[-1]
         if GCP_S2D != folder_path + GCP_S2D_xml:
             copyfile(GCP_S2D, folder_path + GCP_S2D_xml)
-            print("HEYY!!\n"+ str(GCP_pictures) + str(final_pictures) + folder_path+GCP_S2D_xml)
-            wxml.change_xml(GCP_pictures, final_pictures, folder_path + GCP_S2D_xml)  # todo pas forcément assignées
+            print("HEYY!!\n" + str(GCP_pictures) + str(final_pictures) + folder_path + GCP_S2D_xml)
+            wxml.change_xml(GCP_pictures, final_pictures, folder_path + GCP_S2D_xml)  # todo pas forcement assignees
 
         command = 'echo | mm3d GCPBascule {} {} Bascule {} {}'.format(image_path,
                                                                       distortion_model,
@@ -211,8 +292,14 @@ def copy_and_process(filepath_list, main_folder, folder_name="TMP_MicMac", image
     print(command)
     os.system(command)
 
-    ply_name = date_str + "_" + C3DC_type + ".ply"  # todo le mettre en parametre
-    command = 'echo | mm3d C3DC {} "{}" {} ExpTxt=1 Out={} OffsetPly=[410000,6710000,0]'.format(C3DC_type, image_path, ori, ply_name)
+    ply_name += date_str + ".ply"
+    command = 'echo | mm3d Malt GeomImage {} {} Master={} DefCor=0.{} MasqIm=Masq'.format(image_path, ori, master_img,
+                                                                                          DefCor)
+    print(command)
+    os.system(command)
+
+    command = 'echo | mm3d Nuage2Ply MM-Malt-Img-{}/NuageImProf_STD-MALT_Etape_7.xml Attr={} Out={} Offs=[410000,6710000,0]'.format(
+        '.'.join(master_img.split('.')[:-1]), master_img, ply_name)
     print(command)
     os.system(command)
     os.system('exit')
@@ -228,7 +315,7 @@ def copy_and_process(filepath_list, main_folder, folder_name="TMP_MicMac", image
         recap.write(string)
 
         if os.path.exists(folder_path + ply_name):
-            copyfile(folder_path + ply_name, main_folder + "Result/" + ply_name)
+            copyfile(folder_path + ply_name, output_folder + ply_name)
             recap.write("\nStatus  : Success\n")
         else:
             recap.write("\nStatus  : Failure\n")
@@ -236,6 +323,7 @@ def copy_and_process(filepath_list, main_folder, folder_name="TMP_MicMac", image
         # write a .txt with residuals
         if os.path.exists(folder_path + "Ori-" + distortion_model + "/"):  # if Tapas command worked
             dict = rxml.residual2txt(folder_path + "Ori-" + distortion_model + "/")
+            print(dict)
             recap.write("\nNumber of iterations : {}   Average Residual : {}\n".format(dict['nb_iters'], "%.4f" % dict[
                 'AverageResidual']))
             recap.write("\nName           Residual     PercOk        Number of Tie Points\n")
@@ -243,25 +331,17 @@ def copy_and_process(filepath_list, main_folder, folder_name="TMP_MicMac", image
                 recap.write(
                     "{} : {}       {}       {}\n".format(i, "%.4f" % float(dict[i][0]), "%.4f" % float(dict[i][1]),
                                                          dict[i][2]))
-    copyfile(folder_path + date_str + '_recap.txt', main_folder + "Result/" + date_str + '_recap.txt')
+    copyfile(folder_path + date_str + '_recap.txt', output_folder + date_str + '_recap.txt')
 
-    # delete temporary MicMac Files todo plutôt supprimer le dossier entier
+    # try to delete temporary folder
     try:
-        #rmtree(folder_path + "Tmp-MM-Dir")
-        #rmtree(folder_path + "Ori-InterneScan")
-        #rmtree(folder_path + "Homol")
-        #rmtree(folder_path + "Pastis")
-        #rmtree(folder_path + "Pyram")
-        #rmtree(folder_path + "PIMs-" + C3DC_type)
-        #os.remove(folder_path + "cAppliMMByPair_0")
-        #os.remove(folder_path + "MMByPairCAWSI.xml")
-        #os.remove(folder_path + "MMByPairFiles.xml")
-        os.remove(folder_path + "SauvApero.xml")  # todo peut être laisser celui là
-        os.remove(folder_path + "WarnApero.txt")
+        rmtree(folder_path)
     except FileNotFoundError:
         pass
     except PermissionError:
         print("Permission Denied :'(")
+    except OSError:
+        pass
         # todo plus l'avoir
 
 
@@ -284,8 +364,16 @@ def main_GCP_estim(folder_path, image, points=0):
 
 
 def process_from_array(main_folder_path, secondary_folder_list, pictures_array, InCal=None, InOri=None,
-                       pictures_Ori=None, GCP=None, GCP_S2D=None, GCP_pictures = None):
-    if InOri is not None and pictures_Ori is None:  # todo cela sous entend que l'orientation initiale fait parti de la liste, c'est un peu débile
+                       pictures_Ori=None, GCP=None, GCP_S2D=None, GCP_pictures=None, output_folder="",
+                       re_estimate=False, master_folder=0, masq2D=None):
+
+    if type(master_folder) != int or not (0 <= master_folder < len(secondary_folder_list)):
+        print("Invalid value {} for parameter master folder, value set to 0".format(master_folder))
+        print("must be the indice of the array secondary_folder_list")
+        master_folder = 0
+
+    ext = pictures_array[0,1].split('.')[-1].lower()
+    if InOri is not None and pictures_Ori is None:  # todo cela sous entend que l'orientation initiale fait parti de la liste, c'est un peu debile
         # basically all of this aims at finding the order of pictures used for orientation (ie their initial camera)
         flist = os.listdir(InOri)
         image = ""
@@ -311,7 +399,7 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
         flist = os.listdir(GCP_S2D[:-len(GCP_S2D.split('/')[-1])])
         image = ""
         for file in flist:
-            if file.split('.')[-1].lower() == "jpg":# todo qu'est ce que c'est moche
+            if file.split('.')[-1].lower() == ext:  # todo qu'est ce que c'est moche
                 image = file
                 break
         print(image)
@@ -328,16 +416,54 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
         GCP_pictures = pictures_array[i - 1, 1:]
         print(GCP_pictures)
 
+    if masq2D is not None:
+        print("Collecting mask path")
+        masqpath_list = ['' for i in range(pictures_array.shape[1] -1)]
+        flist = os.listdir(masq2D)
+        for file in flist:
+            if file[-9:] == "_Masq.tif":
+                I, J = pictures_array.shape
+                i = 0
+                found = False
+                while i < I and not found:
+                    j = 1
+                    while j < J and not found:
+
+                        if pictures_array[i, j].lower() == file[:-9].lower() + '.' + ext:
+                            masqpath_list[j-1] = masq2D + file
+                            found = True
+                        j += 1
+                    i += 1
+        print(masqpath_list)
+        if '' in masqpath_list:
+            print("Cannot find pictures corresponding to mask in pictures array")
+            exit(1)
+    else:
+        masqpath_list = []
+
+
     for line in pictures_array:
+
         if line[0]:
             list_path = []
             for i in range(1, len(secondary_folder_list) + 1):
                 list_path.append(main_folder_path + secondary_folder_list[i - 1] + str(line[i]))
+            print(list_path[0])
+            # determining which of the pictures is the master image for dense correlation (Malt)
+            master_img = str(line[master_folder])
+            date = load_date(list_path[0])
+            h = date.hour
 
-            copy_and_process(
-                list_path,
-                main_folder_path, InCal=InCal, InOri=InOri, pictures_Ori=pictures_Ori, GCP=GCP, GCP_S2D=GCP_S2D,
-                GCP_pictures=GCP_pictures)
+            if h == 12:
+                info = "Processing pictures taken on " + str(date) + ":\n  "
+                for img in line[1:]:
+                    info += img + "  "
+                print(info)
+                copy_and_process(
+                    list_path,
+                    output_folder=output_folder, InCal=InCal, InOri=InOri, pictures_Ori=pictures_Ori, GCP=GCP, GCP_S2D=GCP_S2D,
+                    GCP_pictures=GCP_pictures,  re_estimate=re_estimate,
+                    master_img=master_img, masqpath_list=masqpath_list)
 
 
 if __name__ == "__main__":
@@ -349,7 +475,7 @@ if __name__ == "__main__":
     #              "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/cam_mid/"])
 
     # array = pictures_array_from_file("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Scripts_Python/linkedFiles.txt")
-    # print(check_pictures("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/", ["cam_est/","cam_ouest/","cam_mid/"], array, 1, 5))
+    # print(check_pictures("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/", ["cam_est/","cam_ouest/","cam_mid/"],"../", array, 1, 5))
     array = pictures_array_from_file(
         "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/linkedFiles.txt")
     folders = ["cam_est/", "cam_ouest/", "cam_mid/"]
@@ -358,12 +484,6 @@ if __name__ == "__main__":
                        InOri="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-12_8-16/Ori-RadialStd/",
                        GCP="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-11_17-16/Pt_gps_gcp.xml",
                        GCP_S2D="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-11_17-16/Mesures_Appuis-S2D.xml")
-    # copy_and_process(["C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/Cam_est/DSC00876.JPG",
-    #                  "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/Cam_ouest/DSC01977.JPG",
-    #                  "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/Cam_mid/DSC03492.JPG"],
-    #                 "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/",
-    #                 InOri="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-12_8-16/Ori-RadialStd/",
-    #                pictures_Ori=['DSC00874.JPG','DSC01975.JPG','DSC03490.JPG'])
     toc = time.time()
     temps = abs(toc - tic)
     print("Executed in {} seconds".format(round(temps, 3)))
