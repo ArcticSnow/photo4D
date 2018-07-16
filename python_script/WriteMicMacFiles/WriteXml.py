@@ -48,7 +48,7 @@ def write_S2D_xmlfile(list_img_measures, file_name):
                            [NamePoint2 (String), measure (String, 'coordPoint2Image1 coordPoint2Image1')],
                            ...],
      [NameImage2 (String), [NamePoint1 (String), measure (String, 'coordPoint1Image2 coordPoint1Image2')],
-                           [NamePoint2 (String), measure (String, 'coordPoint2Image1 coordPoint2Image2')],
+                           [NamePoint2 (String), measure (String, 'coordPoint2Image2 coordPoint2Image2')],
                            ...], ...]
     :param file_name: path or name of the output file
     """

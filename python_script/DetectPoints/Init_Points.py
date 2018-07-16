@@ -130,6 +130,7 @@ def create_samples(list_pos, image, size_sample=10, image_path="", sample_path="
     with open("creation_samples.txt",'w') as log:
         log.write(report)
 
+
 def create_dist_matrix(samples_position_ini):
     """
     Compute the distance matrix between samples (in pixels)
