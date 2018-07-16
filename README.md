@@ -1,11 +1,31 @@
-# Project obtain 4D data for snowmelt
+# Photo4D: a Project to generate 4D data from time-lapse cameras
 
 Simon Filhol (simon.filhol@geo.uio.no)
 
 Guillaume Sutter (sutterguigui@gmail.com)
 
-Alexis Perret ()
+Alexis Perret (aperret2010@hotmail.fr)
 
+## Description
+
+This project consists of an automated program to generate point cloud from time-lapse set of images from independent cameras. The software: 
+      1) sorts images by timestamps, 
+      2) assess the image quality based on lumincace and bluriness, 
+      3) identify automatically GCPs through the stacks of images, 
+      4) run Micmac to compute point clouds, and 
+      5) convert point cloud to rasters. 
+
+The project should be based on open-source libraries, for public release. 
+
+## Installation
+1. install the latest version of [micmac](https://micmac.ensg.eu/index.php/Install)
+2. install python 3.6, and with anaconda, create a virtual environment with the following packages: 
+     - opencv 
+     - pandas 
+     - matplotlib
+     - lxml
+ 3. clone the github repository where you want on your system
+     git clone ....
 
 ## Objectives
 
@@ -16,11 +36,9 @@ Alexis Perret ()
  5. try automating every steps of the algorithm, and combine scripts into one program (app)
  6. Success??!
 
-## Description
+## Use
 
-This project will consist to develop an automated program to derive 4 dimentional (x,y,z,t) description of the snow surface within the field of view of several time-lapse camera.
-
-The project should be based on open-source libraries, for public release. 
+[Insert here example on how to use the package]
 
 ## Strategy
 

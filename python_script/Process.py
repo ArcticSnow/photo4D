@@ -2,12 +2,13 @@
 import numpy as np
 import pandas as pd
 import os
-from DetectPoints import Init_Points as ini
-from DetectPoints import DetectPattern as dct
-from WriteMicMacFiles import WriteXml as wxml
-from WriteMicMacFiles import ReadXml as rxml
-from pictures_process.Handle_Exif import load_date, load_lum
-from pictures_process.Stats import blurr
+import matplotlib.pyplot as plt
+from python_script.DetectPoints import Init_Points as ini
+from python_script.DetectPoints import DetectPattern as dct
+from python_script.WriteMicMacFiles import WriteXml as wxml
+from python_script.WriteMicMacFiles import ReadXml as rxml
+from python_script.pictures_process.Handle_Exif import load_date, load_lum
+from python_script.pictures_process.Stats import blurr
 from shutil import copyfile, rmtree, copytree
 import time
 
@@ -356,11 +357,11 @@ def main_GCP_estim(folder_path, image, points=0):
     # create a panda DataFrame storing data for stats
     labels = ['IMG', 'Pti', 'Ptj', 'XPti', 'XPtj', 'XRefPti', 'XRefPtj', 'YPti', 'YPtj', 'YRefPti', 'YRefPtj', 'Distij',
               'DistRefij']
-    df = pd.DataFrame.from_records(list_tot, columns=labels)
+    #df = pd.DataFrame.from_records(list_tot, columns=labels)
 
     # todo changer le chemin en relatif
-    df.to_csv('C:/Users/Alexis/Documents/Travail/Stage_Oslo/Scripts_Python/Stats/data_for_stat_cam2.csv', sep=',',
-              encoding='utf-8')
+    #df.to_csv('C:/Users/Alexis/Documents/Travail/Stage_Oslo/Scripts_Python/Stats/data_for_stat_cam2.csv', sep=',',
+    #          encoding='utf-8')
 
 
 def process_from_array(main_folder_path, secondary_folder_list, pictures_array, InCal=None, InOri=None,
@@ -469,10 +470,12 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
 if __name__ == "__main__":
     tic = time.time()
     print("process launched")
+
     # main_GCP_estim("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Test_scene_blindern/Pictures/ByCam/Cam2/","DSC00918_11h30.JPG",points = 'selection-S2D.xml')
     # sort_pictures(["C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/cam_est/",
     #              "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/cam_ouest/",
     #              "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/cam_mid/"])
+<<<<<<< HEAD
 
     # array = pictures_array_from_file("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Scripts_Python/linkedFiles.txt")
     # print(check_pictures("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/", ["cam_est/","cam_ouest/","cam_mid/"],"../", array, 1, 5))
@@ -484,6 +487,13 @@ if __name__ == "__main__":
                        InOri="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-12_8-16/Ori-RadialStd/",
                        GCP="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-11_17-16/Pt_gps_gcp.xml",
                        GCP_S2D="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-11_17-16/Mesures_Appuis-S2D.xml")
+=======
+    main_folder = "./finse_hycamp/Data-Finse/time-lapse_imagery/Finse_alexis/raw_imagery/middal/"
+    #sort_pictures([main_folder + "20180612_cam_east/"],
+    #              main_folder + )
+    for i in os.listdir("./"):
+        print(i)
+>>>>>>> 9d17a9cc6f34746a4898a2049fe5a6d7e13c2d3a
     toc = time.time()
     temps = abs(toc - tic)
     print("Executed in {} seconds".format(round(temps, 3)))

@@ -2,6 +2,7 @@
 
 
 from datetime import datetime
+import sys
 
 import pyxif
 import time

@@ -1,0 +1,3 @@
+[submodule "Pyxif"]
+	path = Pyxif
+	url = git@github.com:zenwerk/Pyxif.git
