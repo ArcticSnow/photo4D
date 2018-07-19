@@ -2,6 +2,7 @@
 
 from lxml import etree
 import os
+import cv2 as cv
 
 
 def write_S3D_xmlfile(list_pt_measures, file_name):
@@ -76,7 +77,45 @@ def write_S2D_xmlfile(list_img_measures, file_name):
         print('Error while writing file')
         exit(1)
 
+def write_masq_xml(tif_mask, output=""):
+    """
+    write  default xml file describing the mask from MicMac
+    Even if this file seems useless, MicMac will throw an error without (MasqIm = Masq in the Malt command at least)
+    :param tif_mask: path to the MicMac mask, in .tif format
+    :param output: path for output xml file
+    """
+    if tif_mask.split('.')[-1] not in ["tif", "tiff"]:
+        print("Wrong input path " + tif_mask + "\n Must be a .tif file")
+        exit(1)
+    if output == "":
+         output = '.'.join(tif_mask.split('.')[:-1]) + ".xml"
+    elif output.split('.')[-1] != "xml":
+        print("Wrong output path " + output + "\n Must be a .xml file")
+        exit(1)
+    fileori = etree.Element('FileOriMnt')
+    name = etree.SubElement(fileori,'NameFileMnt')
+    name.text = tif_mask
+    nb_pix = etree.SubElement(fileori,'NombrePixels')
+    shape = cv.imread(  # todo on peut pas trouver plus simple ?
+        tif_mask).shape
+    nb_pix.text = "{} {}".format(shape[1], shape[0])
+    etree.SubElement(fileori,'OriginePlani').text = "0 0"
+    res_plan = etree.SubElement(fileori,'ResolutionPlani')
+    res_plan.text = "1 1"
+    or_alti = etree.SubElement(fileori, 'OrigineAlti')
+    or_alti.text = "0"
+    res_alti = etree.SubElement(fileori, 'ResolutionAlti')
+    res_alti.text = "1"
+    geom = etree.SubElement(fileori, 'Geometrie')
+    geom.text = "eGeomMNTFaisceauIm1PrCh_Px1D"
 
+    try:
+        with open(output,'w') as file:
+            file.write('<?xml version="1.0" encoding="UTF_8"?>\n')
+            file.write (etree.tostring(fileori, pretty_print=True).decode('utf-8'))
+    except IOError:
+        print('Error while writing file')
+        exit(1)
 def change_Ori(initial_pictures, final_pictures, ori_folder_path):
     """
     Changes all the files of an Ori- folder from MicMac, in the way that every reference to initial pictures
@@ -86,6 +125,7 @@ def change_Ori(initial_pictures, final_pictures, ori_folder_path):
     :param final_pictures: list of initial pictures to be replaced, in the same order as the final one
     :param ori_folder_path: path of the orientation folder (name beginning with Ori- )
     """
+    print(ori_folder_path)
     if ori_folder_path[-1] != '/': ori_folder_path += "/"
     if ori_folder_path.split('/')[-2][0:4] != "Ori-":
         print("Ori path is not valid : {}\nYou need to enter the path to the Ori-folder ".format(ori_folder_path))
@@ -172,6 +212,5 @@ if __name__ == "__main__":
     liste_points3D = [['1', "-23.4605861800590318 1.71111440194407338 26.4778679705422384", "1 1 1"],
                       ['1', "15.9331147514487199 -5.33682558320814415 102.277413480224084"]]
 
-    # write_S3D_xmlfile(liste_points3D, 'Appuis_fictifs-S3D.xml')
-    change_xml(["DSC00859.JPG", "DSC01960.JPG", "DSC03475.JPG"], ["pattate", "frite", "etc"],
-               "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-11_17-16/Mesures_Appuis-S2D.xml")
+    write_masq_xml("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Result_guillaume/20170614/DSC00333_Masq.tif",
+                   output="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Result_guillaume/20170612/DSC00333_Masq.xml")

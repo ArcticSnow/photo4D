@@ -5,6 +5,10 @@ import shutil
 import pandas as pd
 import numpy as np
 from laspy.file import File
+import pyxif
+from PIL import Image
+from PIL.TiffTags import TAGS
+
 
 def loadLAS2XYZAIR(filepath):
     '''
@@ -142,9 +146,9 @@ def load_ascii_ply(filepath):
             return None
 
 if __name__ == "__main__":
-    #print(loadLAS2XYZAIR("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Midday/2018-6-9_12-16_BigMac.las"))
-    array = load_ascii_ply("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/MicMac_Initial/C3DC_BigMac.ply")
-    rast, xmin, ymax = xyz2binarray(array, -1, 3 , -0.1, 19, nx=1000, ny=1000, method='mean')
-    plt.figure()
-    plt.imshow(rast)
-    plt.show()
+    zeroth_dict, exif_dict, gps_dict = pyxif.load("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Result_guillaume/20170614/DSC00333_Masq.tif")
+    print(zeroth_dict)
+    img_jpg = cv.imread("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/cam_ouest/DSC01954.JPG")
+    #img_arw = cv.imread("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/cam_ouest/DSC01954.ARW")
+    print(img_jpg.shape)
+    print("Ori-Bascule.arw"[:-4])

@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import cv2 as cv
 from matplotlib import pyplot as plt
+import warnings
 
 
 # todo finir la traduction
@@ -65,80 +66,92 @@ def residual2txt(ori_folder_path, xmlfile='Residus.xml', output_folder_path="", 
     file.close()
     return dict
 
-def read_S2D_xmlfile(filepath,disp=False, img_path=None):
+
+def read_S2D_xmlfile(filepath, disp=False, img_path=None):
     list_img_measures = []
-    with open(filepath,'r') as xml:
+    with open(filepath, 'r') as xml:
         # Parsing of xml
         tree = etree.parse(filepath)
 
         for image in tree.xpath("/SetOfMesureAppuisFlottants/MesureAppuiFlottant1Im/NameIm"):
-            list_measures =[]
+            list_measures = []
             for measure in tree.xpath(
                     "/SetOfMesureAppuisFlottants/MesureAppuiFlottant1Im[NameIm='DSC00859.JPG']/OneMesureAF1I"):
                 list_measures.append((measure[0].text, measure[1].text))
-            list_img_measures.append([image.text,list_measures])
+            list_img_measures.append([image.text, list_measures])
 
     if disp:
 
-        img=cv.imread(img_path)
+        img = cv.imread(img_path)
 
-        found=False
+        found = False
         for image in list_img_measures:
-            if image[0]== img_path.split('/')[-1]:
+            if image[0] == img_path.split('/')[-1]:
                 for mes in image[1]:
                     point_name = mes[0]
-                    x,y = mes[1].split(' ')
-                    pos = (int(float(x)),int(float(y)))
-                    pos_up = pos[0] + 500,pos[1] + 500
-                    cv.arrowedLine(img, pos_up,pos, 255, 4)
+                    x, y = mes[1].split(' ')
+                    pos = (int(float(x)), int(float(y)))
+                    pos_up = pos[0] + 500, pos[1] + 500
+                    cv.arrowedLine(img, pos_up, pos, 255, 4)
                     cv.putText(img, point_name, pos, cv.FONT_HERSHEY_SIMPLEX,
-                                    5,(0, 255, 255),thickness=10)
-                found=True
-        if not found: print("Cannot find measure for image " + img_path)
+                               5, (0, 255, 255), thickness=10)
+                found = True
+        if not found:
+            print("Cannot find measure for image " + img_path)
         else:
-            #cv.namedWindow('Result', cv.WINDOW_NORMAL)
-            #cv.imshow('Result',img)
-            #cv.waitKey(0)
-            #cv.destroyAllWindows()
             plt.imshow(img)
             plt.show()
     return list_img_measures
-
 
 
 def count_tiepoints_from_txt(main_folder_path):
     """
     Count Tie Points found by the Tapioca command of MicMac USED WITH ExpTxt=1
 
-    :param main_folder_path: path of the folder where is situated the Homol folder
-    :return:
+    :param main_folder_path: path of the folder where is situated the Homol folder, or path of the Homol folder
+    :return: tuple containing
+    - a panda DataFrame, row and column indexes are the name of pictures used, and for cell, the number
+    of Tie points found in image row compared to img colum todo rendre ca lisible
+    - the total number of tie points
     """
-    main_folder_path += "Homol/"
-    folder_list = os.listdir(main_folder_path)
 
-    index = []
-    for folder in folder_list:
-        index.append(folder[6:])  # remove Pastis...
-    df = pd.DataFrame(np.zeros((len(folder_list), len(folder_list))), index=index, columns=index)
+    # path checking
+    if main_folder_path[-1] != "/": main_folder_path += "/"
+    if main_folder_path.split("/")[-2] != "Homol":
+        main_folder_path += "Homol/"
 
-    s = 0
-    for folder in folder_list:
-        file_list = os.listdir(main_folder_path + folder)
-        for filename in file_list:
-            if filename.split('.')[-1] == 'txt':
-                file = open(main_folder_path + folder + "/" + filename, 'r')
+    try:
+        folder_list = os.listdir(main_folder_path)
 
-                # basically just counting the number of row in each file
-                i = 0
-                for line in file.readlines():
-                    i += 1
-                    s += 1
-                df.loc[folder[6:], filename.rstrip('.txt')] = i
-    return df.head(), s
+        # collect picture names, each folder matches one picture
+        index = []
+        for folder in folder_list:
+            index.append(folder[6:])  # remove Pastis...
+        df = pd.DataFrame(np.zeros((len(folder_list), len(folder_list))), index=index, columns=index)
+
+        # count tie points
+        s = 0  # total tie points
+        for folder in folder_list:
+            file_list = os.listdir(main_folder_path + folder)
+            for filename in file_list:
+                if filename.split('.')[-1] == 'txt':
+                    file = open(main_folder_path + folder + "/" + filename, 'r')
+
+                    # basically just counting the number of row in each file
+                    i = 0
+                    for line in file.readlines():
+                        i += 1
+                        s += 1
+                    df.loc[folder[6:], filename.rstrip('.txt')] = i
+        if s == 0:
+            print('\033[0;31m WARNING, 0 Tie Points found, please check that ExptTxt=1 in Tapioca \033[0m')
+        return df, s
+    except IOError:
+        print('\033[0;31m' + "Cannot open " + main_folder_path + '\033[0m')
 
 
 if __name__ == "__main__":
-    # count_tiepoints_from_txt(
-    #    "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/MicMac_Test_06_11-22h/")
-    read_S2D_xmlfile("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-11_17-16/Mesures_Appuis-S2D.xml",
-    disp=True,img_path="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/TMP_MicMac_2018-6-11_17-16/DSC00859.JPG")
+    df =count_tiepoints_from_txt(
+        "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Result_guillaume/20170612")[0]
+    print(df)
+    print(df.ix("DSC00711.JPG"))

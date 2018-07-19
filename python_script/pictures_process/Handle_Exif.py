@@ -46,6 +46,11 @@ def load_lum(filename):
         return None
 
 def write_sample_metadata(file_path,date,source_picture, gcp_name, pos_ini ):
+    """
+    write sample parameters in metadata (totally artifitial and ugly
+    :param file_path:
+    :return:
+    """
     pos_ini = int(pos_ini[0]),int(pos_ini[1]) # todo trouver un moyen d'éviter cette perte
     metadata = {pyxif.ImageGroup.ImageDescription: gcp_name,
                   pyxif.ImageGroup.Software: "python 3.6.3",
@@ -53,11 +58,12 @@ def write_sample_metadata(file_path,date,source_picture, gcp_name, pos_ini ):
                 pyxif.ImageGroup.WhitePoint :  pos_ini
                   }
     # convert datetime object to string and add date to exif data
-    exifdata={pyxif.PhotoGroup.DateTimeOriginal:date.strftime("%Y:%m:%d %H:%M:%S"),}
+    exifdata={pyxif.PhotoGroup.DateTimeOriginal:date.strftime("%Y:%m:%d %H:%M:%S")}
     exif_bytes = pyxif.dump(metadata, exif_ifd=exifdata)
     pyxif.insert(exif_bytes, file_path)
 
 def load_sample_metadata(file_path):
+
     try:
         zeroth_dict, exif_dict, gps_dict = pyxif.load(file_path)
         gcp_name = zeroth_dict[pyxif.ImageGroup.ImageDescription][1]
