@@ -17,7 +17,7 @@ import os
 from io import BytesIO
 import pyxif
 import matplotlib.pyplot as plt
-
+from shutil import copyfile
 
 def open_SONY_raw(filename, gamma=(2.22, 4.5), output_bps=8, brightness=1, exp_shift=4, exp_preserve_highlights=0.5):
     with rawpy.imread(filename) as raw:
@@ -55,6 +55,44 @@ def process_arw_clahe_folder(in_folder, tileGridSize, grey=False, metadata=False
                                   metadata_path="")
         except IndexError:
             pass
+
+def process_clahe_folder(in_folder, tileGridSize, grey=False, out_folder="", new_name_end="_Clahe"):
+    # Process all the .arw pictures in the following folder
+
+    flist = np.sort(os.listdir(in_folder))
+
+    for f in flist:
+        try:
+            if f.split(".")[-1].lower() == "jpg":
+                in_path = in_folder + f
+                if out_folder == "":  out_folder = in_folder
+                out_path = out_folder + f[:-4] + new_name_end + ".JPG"
+
+                process_clahe(in_path, tileGridSize, grey=grey, out_path=out_path)
+        except IndexError:
+            pass
+
+def process_clahe(in_path, tileGridSize, grey=False, out_path="", clip_limit=2):
+    if out_path == "":
+        out_path = ".".join(inpath.split(".")[:-1]) + "_clahe.JPG"
+    print("Processing CLAHE method on " + in_path.split("/")[-1])
+    img = cv2.imread(in_path)
+    if grey: img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    img = cv2.medianBlur(img, 3) # Median Filter
+
+    clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(tileGridSize, tileGridSize))  # CLAHE
+
+    channels_ini = cv2.split(img)
+    channels_final = []
+    for channel in channels_ini:
+        # Apply CLAHE for each channel
+        channels_final.append(clahe.apply(channel))
+
+    img_final = cv2.merge(channels_final)
+
+    imageio.imsave(out_path, img_final)
+    pyxif.transplant(in_path, out_path)
 
 def process_arw_clahe(in_path, tileGridSize, grey=False, out_path="", metadata=False, metadata_path="",
                           clip_limit=2):
@@ -96,8 +134,11 @@ def process_arw_clahe(in_path, tileGridSize, grey=False, out_path="", metadata=F
 
 if __name__ == "__main__":
     tic = time.time()
-    inpath = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/TestdelaMortquitue/Mask/"
-    process_arw_clahe_folder(inpath, 8, metadata=True, grey=True)
+    inpath = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/Verif/Fin/"
+    process_clahe_folder(inpath,8,grey=True,new_name_end="_")
+    #process_clahe(inpath, 8, grey=False, out_path="", clip_limit=2)
+    #copyfile("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/TestdelaMortquitue/Mask/DSC00854.JPG",
+    #         "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/TestdelaMortquitue/Mask/DSC00854_clahe.JPG")
 
     toc = time.time()
     temps = abs(toc - tic)

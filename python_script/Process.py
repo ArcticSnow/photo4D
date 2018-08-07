@@ -1,10 +1,6 @@
 # coding : uft8
 import numpy as np
-import pandas as pd
 import os
-import matplotlib.pyplot as plt
-from DetectPoints import Init_Points as ini
-from DetectPoints import DetectPattern as dct
 from WriteMicMacFiles import WriteXml as wxml
 from WriteMicMacFiles import ReadXml as rxml
 from pictures_process.Handle_Exif import load_date, load_lum
@@ -158,7 +154,10 @@ def pictures_array_from_file(filepath):
                 list_temp = line.split(',')
                 length = len(list_temp)
                 array_line = np.empty(length, dtype=object)
-                array_line[0] = bool(list_temp[0])
+                if list_temp[0].rstrip(" ").lower() == "true":
+                    array_line[0] = True
+                else:
+                    array_line[0] = False
                 for i in range(1, length):
                     array_line[i] = list_temp[i].rstrip('\n')
                 all_lines.append(array_line)
@@ -167,8 +166,8 @@ def pictures_array_from_file(filepath):
 
 
 def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac", ply_name="", clahe=False, resol=-1,
-                     distortion_model="RadialStd", InCal=None, InOri=None, GCP=None,
-                     GCP_S2D=None, pictures_Ori=None, GCP_pictures=None, re_estimate=False,
+                     distortion_model="RadialStd", InCal=None, InOri=None, abs_coord_gcp=None,
+                     img_coord_gcp =None, pictures_Ori=None, re_estimate=False,
                      master_img=None, masqpath_list=None, DefCor=0.0, shift=None, delete_temp=True):
     """
     copy needed files and process micmac for a set of given pictures (filepath_list)
@@ -191,9 +190,8 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
     :param InOri: path to initial orientation folder (from MicMac), None if no initial orientation used
     :param pictures_Ori: pictures of initial calibration, in the same order as secondary folder list
     :param re_estimate: -only if there is an initial orientation- if True, re estimate the orientation
-    :param GCP: xml file containing absolute coordinates of GCPs, file from the MicMac command GCPConvert
-    :param GCP_S2D: xml file containing image coordinates of the GCPs, result one of the SaisieAppuis command in MicMac
-    :param GCP_pictures: pictures used in GCP_S2D, in the same order as secondary folder list
+    :param abs_coord_gcp: xml file containing absolute coordinates of GCPs, file from the MicMac command GCPConvert
+    :param img_coord_gcp: xml file containing image coordinates of the GCPs, result one of the SaisieAppuis command in MicMac
 
     :param master_img:
     :param masqpath_list: list of mask, each mask file in this list correspond to the picture of the same indice in filepath list
@@ -238,15 +236,10 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
         if not clahe:
             copyfile(filepath, folder_path + filename)
         else:
-            # apply the CLAHE method on the .ARW picture
-            arw_path = ".".join(filepath.split(".")[:-1]) + ".ARW"
-            try:
-                cl.process_arw_clahe(arw_path
-                                     , 8, out_path=folder_path + filename, metadata=True, grey=True)
-            except IOError:
-                print(
-                    "\033[0;31WARNING cannot open file " + " to apply the CLAHE method, initial file used instead\033[0m")
-                copyfile(filepath, folder_path + filename)
+            # apply the CLAHE method, used for the orientation
+            cl.process_clahe(filepath
+                                  , 8, out_path=folder_path + filename, grey=True)
+
 
         # copy mask corresponding to the picture
         if masqpath_list is not None:
@@ -275,7 +268,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
 
     # Orientation of cameras
 
-    # list picture names, used to transform orientation, calibration and GCP files
+    # list picture names, used to transform orientation and calibration
     final_pictures = []
     for filepath in filepath_list:
         final_pictures.append(filepath.split("/")[-1])
@@ -283,6 +276,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
     ori = distortion_model  # name of orientation, it is the distortion model by default
     # if there is an initial orientation
     if InOri is not None:
+
         if InOri[-1] != "/": InOri += "/"
         # copy the initial orientation file
         new_Ori_path = folder_path + InOri.split('/')[-2] + "/"
@@ -291,9 +285,11 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
         # swap pictures names to mock MicMac computed orientation files
         wxml.change_Ori(pictures_Ori, final_pictures, new_Ori_path)
         # if re_estimate, MicMac recompute the orientation todo verifier l'utilite
+
         if re_estimate:
-            command = 'echo | mm3d Tapas {} "{}" InOri={}'.format(distortion_model, pictures_pattern,
-                                                                  InOri.split('/')[-2])
+            ori += "_R"
+            command = 'echo | mm3d Tapas {} "{}" InOri={} Out={}'.format(distortion_model, pictures_pattern,
+                                                                  InOri.split('/')[-2], ori)
             print("\033[0;33" + command + "\033[0m")
             os.system(command)
         else:
@@ -317,28 +313,33 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
         print("\033[0;33" + command + "\033[0m")
         os.system(command)
 
-    """
-    # if GCP are provided for Bascule (Absolute orientation)
-    if GCP is not None:
-        GCP_xml = GCP.split('/')[-1]
-        if GCP != folder_path + GCP_xml:
-            copyfile(GCP, folder_path + GCP_xml)
-        GCP_S2D_xml = GCP_S2D.split('/')[-1]
-        if GCP_S2D != folder_path + GCP_S2D_xml:
-            copyfile(GCP_S2D, folder_path + GCP_S2D_xml)
-            print("HEYY!!\n" + str(GCP_pictures) + str(final_pictures) + folder_path + GCP_S2D_xml)
-            wxml.change_xml(GCP_pictures, final_pictures, folder_path + GCP_S2D_xml)  # todo pas forcement assignees
 
-        command = 'echo | mm3d GCPBascule {} {} Bascule {} {}'.format(pictures_pattern,
-                                                                      distortion_model,
-                                                                      GCP_xml,
-                                                                      GCP_S2D_xml)  # todo rajouter option picking ?
-        print("\033[0;33" + command + "\033[0m")
+    # if GCP are provided for Bascule (Absolute orientation)
+    if abs_coord_gcp is not None and img_coord_gcp is not None:
+        # copy GCP absolute coordinates
+        gcp_name = abs_coord_gcp.split('/')[-1]
+        if abs_coord_gcp != folder_path + gcp_name:
+            copyfile(abs_coord_gcp, folder_path + gcp_name)
+        # create S2D xml file with images positions of gcp
+        wxml.write_S2D_xmlfile(img_coord_gcp, folder_path + "GCP-S2D.xml")
+
+        command = 'echo | mm3d GCPBascule "{}" {} Bascule {} {}'.format(pictures_pattern,
+                                                                      ori,
+                                                                      gcp_name,
+                                                                      "GCP-S2D.xml")
+        print(command)
         os.system(command)
         ori = 'Bascule'
-    """
+
 
     # dense correlation
+
+    if clahe:
+        # clahe images were used for orientation, but we need JPG for dense correlation
+        for i in range(len(filepath_list)):
+            filepath = filepath_list[i]
+            filename = filepath.split("/")[-1]
+            copyfile(filepath, folder_path + filename)
 
     ply_name += date_str + ".ply"
     command = 'echo | mm3d Malt GeomImage "{}" {} Master={} DefCor={} MasqIm=Masq'.format(pictures_pattern, ori,
@@ -420,7 +421,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
 
 
 def process_from_array(main_folder_path, secondary_folder_list, pictures_array, InCal=None, InOri=None,
-                       pictures_ori=None, GCP=None, GCP_S2D=None, pictures_gps=None, output_folder="",
+                       pictures_ori=None, gcp=None, gcp_S2D=None, pictures_gps=None, output_folder="",
                        clahe=False, resol=-1,
                        distortion_model="RadialStd",
                        re_estimate=False, master_folder=0, masq2D=None, DefCor=0.0, shift=None, delete_temp=True):
@@ -443,8 +444,8 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
     :param pictures_Ori: pictures of initial calibration, in the same order as secondary folder list
              None if the pictures are in pictures_array, they will be automatically detected
     :param re_estimate: -only if there is an initial orientation- if True, re estimate the orientation
-    :param GCP: .xml file containing coordinates of GCPs, file from the MicMac command GCPConvert
-    :param GCP_S2D: xml file containing image coordinates of the GCPs, result one of the SaisieAppuis command in MicMac
+    :param gcp: .xml file containing coordinates of GCPs, file from the MicMac command GCPConvert
+    :param gcp_S2D: xml file containing image coordinates of the GCPs, result one of the SaisieAppuis command in MicMac
     :param pictures_gps: pictures used in GCP_S2D, in the same order as secondary folder list
     :param output_folder:
     :param master_folder: list indice of the folder where "master images" for Malt reconstruction are stored
@@ -489,26 +490,17 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
                              "Please fill parameter pictures_ori")
         pictures_ori = pictures_array[i - 1, 1:]
 
-    # if pictures_gps is not provided but there is an initial orientation, retrieve it from pictures array
-    if GCP is not None and pictures_gps is None:
-        # find the name of one picture used for GCP measurement, using Orientation S2D xml file
-        image = rxml.read_S2D_xmlfile(GCP_S2D)[0][0]
-        print("DEBUGGGGGGG :" + image)
-        # find the row of this picture in pictures_array and use it as pictures_ori
-        nb_sets, nb_pics = pictures_array.shape
-        i = 0
-        found = False
-        while i < nb_sets and not found:
-            j = 1
-            while j < nb_pics and not found:
-                if pictures_array[i, j] == image:
-                    found = True
-                j += 1
-            i += 1
-        if i == nb_sets - 1 and not found:
-            raise ValueError("Cannot find pictures used for GCP measurement in pictures array\n"
-                             "Please fill parameter pictures_gps")
-        pictures_gps = pictures_array[i - 1, 1:]
+    if gcp is not None and gcp_S2D is not None:
+        if gcp[-4:] != ".xml":
+            print("WARNING Param gcp must be an xml file from the micmac function GCPConvert")
+            exit(1)
+        if not os.path.exists(gcp):
+            print("WARNING Cannot open gcp file at " + gcp)
+            exit(1)
+        # retrieve gcp measures for all image in a dictionary
+        all_gcp = rxml.read_S2D_xmlfile(gcp_S2D)
+
+
 
     if masq2D is not None:
         print("Collecting mask path")
@@ -547,16 +539,31 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
             date = load_date(list_path[0])
             h = date.hour
 
-            if h == 12:
+            if h == 11:
+
                 info = "Processing pictures taken on " + str(date) + ":\n  "
                 for img in line[1:]:
                     info += img + "  "
+
                 print(info)
+
+                if gcp_S2D is not None and gcp is not None:
+                    # create a dictionary with gcp image coordinates of this picture set
+                    try:
+                        print(line[1:])
+                        print(all_gcp)
+                        set_gcp = dict([(k, all_gcp.get(k)) for k in line[1:]])
+                        print(set_gcp)
+                    except AttributeError:
+                        print("Couldn't find gcp measures for this set of pictures in S2D xml\nSet ignored")
+                        continue
+                else:
+                    set_gcp = None
+
                 copy_and_process(
                     list_path,
-                    output_folder=output_folder, InCal=InCal, InOri=InOri, pictures_Ori=pictures_ori, GCP=GCP,
-                    GCP_S2D=GCP_S2D,
-                    GCP_pictures=pictures_gps, re_estimate=re_estimate,
+                    output_folder=output_folder, InCal=InCal, InOri=InOri, pictures_Ori=pictures_ori, abs_coord_gcp=gcp,
+                    img_coord_gcp=set_gcp, re_estimate=re_estimate,
                     master_img=master_img, masqpath_list=masqpath_list,
                     resol=resol, distortion_model=distortion_model,
                     DefCor=DefCor, clahe=clahe, shift=shift, delete_temp=delete_temp)
@@ -571,8 +578,6 @@ if __name__ == "__main__":
     #              "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/cam_ouest/",
     #              "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/cam_mid/"])
 
-    # array = pictures_array_from_file("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Scripts_Python/linkedFiles.txt")
-    # print(check_pictures("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/", ["cam_est/","cam_ouest/","cam_mid/"],"../", array, 1, 5))
     array = pictures_array_from_file(
         "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/linkedFiles.txt")
     folders = ["cam_est/", "cam_ouest/", "cam_mid/"]
@@ -580,10 +585,14 @@ if __name__ == "__main__":
     output_folder = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/TestdelaMortquitue/Results/"
     masq2D = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/TestdelaMortquitue/Mask/"
     inori = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/TestdelaMortquitue/Ori-Fraser/"
+    S2D = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/All_points-S2D.xml"
+    truc = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/GCP/Pt_gps_gcp.xml"
+
     process_from_array(main_folder_path, folders, array,
                        output_folder=output_folder, resol=2000, master_folder=2,
                        masq2D=masq2D, DefCor=0.4, InOri=inori, re_estimate=True,
-                       clahe=True, delete_temp=False)
+                       clahe=True, delete_temp=False, gcp_S2D= S2D, gcp=truc,
+                       distortion_model="Fraser")
     # [410000, 6710000, 0]
     toc = time.time()
     temps = abs(toc - tic)

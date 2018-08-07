@@ -42,11 +42,13 @@ def residual2txt(ori_folder_path, xmlfile='Residus.xml', output_folder_path="", 
         nb_iters = tree.xpath("/XmlSauvExportAperoGlob/Iters/NumIter")[-1].text
         file.write('nb_iters' + sep + nb_iters + '\n')
         dict['nb_iters'] = int(nb_iters)
+
         # Recuperation de la moyenne des residus de la derniere iteration
         av_resid = tree.xpath("/XmlSauvExportAperoGlob/Iters[NumIter={}][NumEtape=3]/\
                                     AverageResidual".format(nb_iters))[0].text
         file.write('AverageResidual' + sep + av_resid + '\n')
         dict['AverageResidual'] = float(av_resid)
+
         # Recuperation des donnees pour chaque image de la derniere iteration
         file.write('\nName{}Residual{}PercOk{}NbPts{}NbPtsMul\n'.format(sep, sep, sep, sep))
         for img in tree.xpath("/XmlSauvExportAperoGlob/Iters[NumIter={}]\
@@ -61,47 +63,36 @@ def residual2txt(ori_folder_path, xmlfile='Residus.xml', output_folder_path="", 
         print("WARNING Can't open the file " + ori_folder_path + xmlfile)
         return 1
     except etree.XMLSyntaxError:
-        print("WARNING The xml is not readable")
+        print("WARNING The xml is not correct")
+        return 1
 
     file.close()
     return dict
 
 
-def read_S2D_xmlfile(filepath, disp=False, img_path=None):
-    list_img_measures = []
-    with open(filepath, 'r') as xml:
-        # Parsing of xml
-        tree = etree.parse(filepath)
+def read_S2D_xmlfile(filepath):
+    dic_img_measures = {}
+    try:
+        with open(filepath, 'r') as xml:
+            # Parsing of xml
+            tree = etree.parse(filepath)
 
-        for image in tree.xpath("/SetOfMesureAppuisFlottants/MesureAppuiFlottant1Im/NameIm"):
-            list_measures = []
-            for measure in tree.xpath(
-                    "/SetOfMesureAppuisFlottants/MesureAppuiFlottant1Im[NameIm='DSC00859.JPG']/OneMesureAF1I"):
-                list_measures.append((measure[0].text, measure[1].text))
-            list_img_measures.append([image.text, list_measures])
+            for image in tree.xpath("/SetOfMesureAppuisFlottants/MesureAppuiFlottant1Im/NameIm"):
+                dic_measures = {}
+                for point in tree.xpath(
+                        "/SetOfMesureAppuisFlottants/MesureAppuiFlottant1Im[NameIm='{}']/OneMesureAF1I".format(image.text)):
+                    point_name = point[0].text
+                    measure = point[1].text.split(" ")
+                    dic_measures [point_name] = (float(measure[0]),float(measure[1]))
+                dic_img_measures[image.text] = dic_measures
+    except etree.XMLSyntaxError:
+        print("WARNING The xml file is not valid  " + filepath)
+        exit(1)
+    except FileNotFoundError:
+        print("WARNING Cannot find file S2D xml at  " + filepath )
+        exit(1)
 
-    if disp:
-
-        img = cv.imread(img_path)
-
-        found = False
-        for image in list_img_measures:
-            if image[0] == img_path.split('/')[-1]:
-                for mes in image[1]:
-                    point_name = mes[0]
-                    x, y = mes[1].split(' ')
-                    pos = (int(float(x)), int(float(y)))
-                    pos_up = pos[0] + 500, pos[1] + 500
-                    cv.arrowedLine(img, pos_up, pos, 255, 4)
-                    cv.putText(img, point_name, pos, cv.FONT_HERSHEY_SIMPLEX,
-                               5, (0, 255, 255), thickness=10)
-                found = True
-        if not found:
-            print("Cannot find measure for image " + img_path)
-        else:
-            plt.imshow(img)
-            plt.show()
-    return list_img_measures
+    return dic_img_measures
 
 
 def count_tiepoints_from_txt(main_folder_path):
@@ -149,9 +140,12 @@ def count_tiepoints_from_txt(main_folder_path):
     except IOError:
         print('\033[0;31m' + "Cannot open " + main_folder_path + '\033[0m')
 
+def get_tiepoints_from_txt(path):
+    point_list = []
+    with open(path) as f:
+        for line in f.readlines():
+            point_list.append(line.split(" "))
+    return np.array(point_list)
 
 if __name__ == "__main__":
-    df =count_tiepoints_from_txt(
-        "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Result_guillaume/20170612")[0]
-    print(df)
-    print(df.ix("DSC00711.JPG"))
+    print(read_S2D_xmlfile("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/MicMac_Initial/GCP-S2D.xml"))
