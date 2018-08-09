@@ -59,7 +59,7 @@ def sort_pictures(folder_path_list, output_folder, ext="jpg", time=600):
         for j in range(1, len(list)):
             folder = list[j]  # list of the (filename,date) of one folder
             i, found = 0, False
-            while not found and i < len(folder):  # todo retirer les images ?
+            while not found and i < len(folder):
                 date_var = folder[i][1]
                 diff = abs(date_ref - date_var)
                 if diff.days * 86400 + diff.seconds < time:  # if the two pictures are taken within 10 minutes
@@ -144,7 +144,8 @@ def check_pictures(main_folder_path, secondary_folder_list, output_folder, pictu
 def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac", ply_name="", clahe=False, resol=-1,
                      distortion_model="RadialStd", InCal=None, InOri=None, abs_coord_gcp=None,
                      img_coord_gcp=None, pictures_Ori=None, re_estimate=False,
-                     master_img=None, masqpath_list=None, DefCor=0.0, shift=None, delete_temp=True, display_micmac=True):
+                     master_img=None, masqpath_list=None, DefCor=0.0, shift=None, delete_temp=True,
+                     display_micmac=True):
     """
     copy needed files and process micmac for a set of given pictures (filepath_list)
     It is advised to give only absolute path in parameters
@@ -227,22 +228,27 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
                          folder_path + '.'.join(filename.split('.')[:-1]) + "_Masq.xml")
             else:
                 wxml.write_masq_xml(masqpath_list[i], folder_path + '.'.join(filename.split('.')[:-1]) + "_Masq.xml")
+
     pictures_pattern = pictures_pattern[:-1] + ")"
 
+    # launching MicMac reconstruction
     # ==================================================================================================================
+
     # detection of Tie points
+    # ===================================================
     os.chdir(folder_path)
     # first detection of Tie points with the option ExpTxt=1 to make a report with txt
-    command = 'mm3d Tapioca All "{}" {} ExpTxt=1'.format(pictures_pattern, resol)
+    command = 'mm3d Tapioca All {} {} ExpTxt=1'.format(pictures_pattern, resol)
     print("\033[0;33" + command + "\033[0m")
-    success, error = exec_mm3d(command,display_micmac)
+    exec_mm3d(command, display_micmac)
     # second detection of Tie points at a lower resolution, without ExpTxt=1, just to avoid a stupid MicMac bug in C3DC
     # MicMac will just convert txt to binary
-    command = 'mm3d Tapioca All "{}" {}'.format(pictures_pattern, resol)
+    command = 'mm3d Tapioca All {} {}'.format(pictures_pattern, resol)
     print("\033[0;33" + command + "\033[0m")
-    success, error = exec_mm3d(command, display_micmac)
+    exec_mm3d(command, display_micmac)
 
     # Orientation of cameras
+    # ===================================================
 
     # list picture names, used to transform orientation and calibration
     final_pictures = []
@@ -260,16 +266,17 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
             copytree(InOri, new_Ori_path)  # We assume that the path is correctly written ( "/Root/folder/Ori-Truc/")
         # swap pictures names to mock MicMac computed orientation files
         wxml.change_Ori(pictures_Ori, final_pictures, new_Ori_path)
-        # if re_estimate, MicMac recompute the orientation todo verifier l'utilite
 
+        # if re_estimate, MicMac recompute the orientation
         if re_estimate:
             ori += "_R"
-            command = 'echo | mm3d Tapas {} "{}" InOri={} Out={}'.format(distortion_model, pictures_pattern,
-                                                                         InOri.split('/')[-2], ori)
+            command = 'mm3d Tapas {} {} InOri={} Out={}'.format(distortion_model, pictures_pattern,
+                                                                InOri.split('/')[-2], ori)
             print("\033[0;33" + command + "\033[0m")
             success, error = exec_mm3d(command, display_micmac)
         else:
             ori = InOri.split('/')[-2]  # name of the new ori is the same as the initial one
+            succes, error = 0, None
 
     # if there is no initial orientation but an initial calibration
     # it assumed that the calibration is the same for every picture
@@ -278,14 +285,14 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
         new_Cal_path = folder_path + InCal.split('/')[-2] + "/"
         if not os.path.exists(new_Cal_path):
             copytree(InCal, new_Cal_path)  # We assume that the path is correctly written ( "/fgg/Ori-Truc/")
-        command = 'echo | mm3d Tapas {} "{}" InCal={}'.format(distortion_model, pictures_pattern,
-                                                              InCal.split('/')[-2])
+        command = 'mm3d Tapas {} {} InCal={}'.format(distortion_model, pictures_pattern,
+                                                     InCal.split('/')[-2])
         print("\033[0;33" + command + "\033[0m")
         success, error = exec_mm3d(command, display_micmac)
 
     # if no initial parameters, classic orientation computation
     else:
-        command = 'echo | mm3d Tapas {} "{}"'.format(distortion_model, pictures_pattern)
+        command = 'mm3d Tapas {} {}'.format(distortion_model, pictures_pattern)
         print("\033[0;33" + command + "\033[0m")
         success, error = exec_mm3d(command, display_micmac)
 
@@ -298,16 +305,20 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
         # create S2D xml file with images positions of gcp
         wxml.write_S2D_xmlfile(img_coord_gcp, folder_path + "GCP-S2D.xml")
 
-        command = 'echo | mm3d GCPBascule "{}" {} Bascule {} {}'.format(pictures_pattern,
-                                                                        ori,
-                                                                        gcp_name,
-                                                                        "GCP-S2D.xml")
+        command = 'mm3d GCPBascule {} {} Bascule_ini {} {}'.format(pictures_pattern,
+                                                                   ori,
+                                                                   gcp_name,
+                                                                   "GCP-S2D.xml")
         print(command)
+        exec_mm3d(command, display_micmac)
+
+        command = 'mm3d Campari {} Bascule_ini Bascule'.format(pictures_pattern)
         success, error = exec_mm3d(command, display_micmac)
+
         ori = 'Bascule'
 
     # dense correlation
-
+    # ===================================================
     if clahe:
         # clahe images were used for orientation, but we need JPG for dense correlation
         for i in range(len(filepath_list)):
@@ -316,19 +327,20 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
             copyfile(filepath, folder_path + filename)
 
     ply_name += date_str + ".ply"
-    command = 'echo | mm3d Malt GeomImage "{}" {} Master={} DefCor={} MasqIm=Masq'.format(pictures_pattern, ori,
-                                                                                          master_img, DefCor)
+    command = 'mm3d Malt GeomImage {} {} Master={} DefCor={} MasqIm=Masq'.format(pictures_pattern, ori,
+                                                                                 master_img, DefCor)
     print("\033[0;33" + command + "\033[0m")
     success, error = exec_mm3d(command, display_micmac)
 
-    # creation of the final point cloud file todo la derniere etape est tjrs 8 ?
+    # creation of the final point cloud file
+    # ===================================================
 
     # create the point cloud
     if shift is None:
-        command = 'echo | mm3d Nuage2Ply MM-Malt-Img-{}/NuageImProf_STD-MALT_Etape_8.xml Attr={} Out={}'.format(
+        command = 'mm3d Nuage2Ply MM-Malt-Img-{}/NuageImProf_STD-MALT_Etape_8.xml Attr={} Out={}'.format(
             '.'.join(master_img.split('.')[:-1]), master_img, ply_name)
     else:
-        command = 'echo | mm3d Nuage2Ply MM-Malt-Img-{}/NuageImProf_STD-MALT_Etape_8.xml Attr={} Out={} Offs={}'.format(
+        command = 'mm3d Nuage2Ply MM-Malt-Img-{}/NuageImProf_STD-MALT_Etape_8.xml Attr={} Out={} Offs={}'.format(
             '.'.join(master_img.split('.')[:-1]), master_img, ply_name, shift)
 
     print("\033[0;33" + command + "\033[0m")
@@ -362,7 +374,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
         else:
             ori_path = folder_path + "Ori-" + ori + "/"
         if os.path.exists(ori_path):  # if Tapas command worked
-            dict = rxml.residual2txt(ori_path)
+            dict = rxml.extract_res(ori_path)
             recap.write("\nNumber of iterations : {}   Average Residual : {}\n".format(dict['nb_iters'], "%.4f" % dict[
                 'AverageResidual']))
             recap.write("\nName           Residual     PercOk        Number of Tie Points\n")
@@ -393,10 +405,11 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
 
 
 def process_from_array(main_folder_path, secondary_folder_list, pictures_array, InCal=None, InOri=None,
-                       pictures_ori=None, gcp=None, gcp_S2D=None, pictures_gps=None, output_folder="",
+                       pictures_ori=None, gcp=None, gcp_S2D=None, output_folder="",
                        clahe=False, resol=-1,
                        distortion_model="RadialStd",
-                       re_estimate=False, master_folder=0, masq2D=None, DefCor=0.0, shift=None, delete_temp=True):
+                       re_estimate=False, master_folder=0, masq2D=None, DefCor=0.0, shift=None, delete_temp=True,
+                       display_micmac=True):
     """
     Do the 3D reconstruction of pictures using MicMac
 
@@ -407,7 +420,7 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
     :param pictures_array: array containing names of pictures to process
             each row is considered as a set, and pictures names must be in the same order as secondary_folder_list
     Reconstruction argument :
-    :param resol: resolution for the research of TiePoints todo demander à luc pour les racourcis
+    :param resol: resolution for the research of TiePoints
             -1 stands for full resolution
     :param distortion_model: distortion model used in Tapas
             can be "Fraser", "FraserBasic", "RadialStd", "RadialBasic" and more
@@ -425,6 +438,7 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
     :param masq2D:
     :param shift: shift for saving ply (if numbers are too big for 32 bit ply) [shiftE, shiftN, shiftZ]
     :param delete_temp: if False the temporary folder will not be deleted, but beware, MicMac files are quite heavy
+    :param display_micmac: if False MicMac log will be hidden, may be useful as this may ba a bit messy sometimes
     :return:
     """
     # checking parameters :
@@ -434,7 +448,7 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
 
     if type(master_folder) != int or not (0 <= master_folder < len(secondary_folder_list)):
         print("Invalid value {} for parameter master folder, value set to 0".format(master_folder))
-        print("must be one indice of the array secondary_folder_list")
+        print("must be one index of the array secondary_folder_list")
         master_folder = 0
 
     # if pictures_Ori is not provided but there is an initial orientation, retrieve it from pictures array
@@ -535,7 +549,7 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
                     img_coord_gcp=set_gcp, re_estimate=re_estimate,
                     master_img=master_img, masqpath_list=masqpath_list,
                     resol=resol, distortion_model=distortion_model,
-                    DefCor=DefCor, clahe=clahe, shift=shift, delete_temp=delete_temp)
+                    DefCor=DefCor, clahe=clahe, shift=shift, delete_temp=delete_temp, display_micmac=display_micmac)
 
 
 if __name__ == "__main__":
@@ -561,7 +575,7 @@ if __name__ == "__main__":
                        output_folder=output_folder, resol=2000, master_folder=2,
                        masq2D=masq2D, DefCor=0.4, InOri=inori, re_estimate=True,
                        clahe=True, delete_temp=False, gcp_S2D=S2D, gcp=truc,
-                       distortion_model="Fraser")
+                       distortion_model="Fraser", display_micmac=True)
     # [410000, 6710000, 0]
     toc = time.time()
     temps = abs(toc - tic)

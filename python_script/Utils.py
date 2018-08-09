@@ -5,6 +5,7 @@ Some useful functions
 from subprocess import Popen, PIPE, STDOUT
 import sys
 import numpy as np
+import os
 
 
 def exec_mm3d(command, display=True):
@@ -23,14 +24,17 @@ def exec_mm3d(command, display=True):
 
     process = Popen(command.split(" "), stdout=PIPE, stderr=STDOUT)
     for line_bin in iter(process.stdout.readline, b''):
-        line = line_bin.decode(sys.stdout.encoding)
-        if display:
-            sys.stdout.write(line)
-        # if waiting for input, which means an error was generated
-        if '(press enter)' in line:
-            print("Error in MicMac process, abort process")
-            process.kill()
-            return 1, None
+        try:
+            line = line_bin.decode(sys.stdout.encoding)
+            if display:
+                sys.stdout.write(line)
+            # if waiting for input, which means an error was generated
+            if '(press enter)' in line:
+                print("Error in MicMac process, abort process")
+                process.kill()
+                return 1, None
+        except UnicodeDecodeError:
+            sys.stdout.write('---cannot decode this line---')
 
     # if no error occurs
     return 0, None
@@ -58,3 +62,7 @@ def pictures_array_from_file(filepath):
                 all_lines.append(array_line)
         print("Done")
         return np.array(all_lines)
+if __name__ == "__main__":
+
+    os.chdir()
+    exec_mm3d('mm3d Tapioca All (DSC00853.JPG|DSC01954.JPG|DSC03469.JPG) {} ExpTxt=1')
