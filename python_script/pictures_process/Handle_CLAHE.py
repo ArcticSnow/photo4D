@@ -3,143 +3,95 @@ Created on Fri Jun 30 09:44:23 2017
 
 @author: Guillaume, Alexis
 
+
+
 To keep metadata when we transform the picture, we use the module pyxif (MIT License), available at :
                          https://github.com/zenwerk/Pyxif
 """
 
-import rawpy
-import imageio
-import PIL.Image
-import cv2
+
+import cv2 as cv
 import time
 import numpy as np
 import os
-from io import BytesIO
 import pyxif
-import matplotlib.pyplot as plt
-from shutil import copyfile
-
-def open_SONY_raw(filename, gamma=(2.22, 4.5), output_bps=8, brightness=1, exp_shift=4, exp_preserve_highlights=0.5):
-    with rawpy.imread(filename) as raw:
-        '''
-        see the documentation at:
-        http://pythonhosted.org/rawpy/api/rawpy.Params.html
-        ==================================================
-        From the help:
-        exp_shift (float): exposure shift in linear scale. Usable range from 0.25 (2-stop darken) to 8.0 (3-stop lighter).
-        exp_preserve_highlights (float): preserve highlights when lightening the image with exp_shift. From 0.0 to 1.0 (full preservation).
-        '''
-        rgb = raw.postprocess(gamma=gamma,
-                              no_auto_bright=True,
-                              bright=brightness,
-                              output_bps=output_bps,
-                              use_camera_wb=True,
-                              exp_shift=exp_shift,
-                              exp_preserve_highlights=exp_preserve_highlights)
-        return rgb[12:-12,8:-8]  # Suppress border pixel, in order to match JPG size
 
 
-def process_arw_clahe_folder(in_folder, tileGridSize, grey=False, metadata=False, out_folder="", new_name_end="_Clahe"):
-    # Process all the .arw pictures in the following folder
+def process_clahe_folder(in_folder, tileGridSize, grey=False, out_folder="", clip_limit=2,new_name_end="_Clahe"):
+    """
+    Apply CLAHE to all jpeg files if a given folder
+    It is not possible to overwrite files, because the initial files are needed to copy-past metadata
 
+    :param in_folder: input folder path
+    :param tileGridSize: size of the "blocks" to apply local histogram equalization
+    :param grey: if True, the image will be converted to grayscale
+    :param clip_limit: contrast limit, used to avoid too much noise
+    :param out_folder: output folder path
+    :param new_name_end: string put at the end of output files, without the extension
+    :return:
+    """
+
+    # Process all the jpeg pictures in the following folder
     flist = np.sort(os.listdir(in_folder))
 
     for f in flist:
         try:
-            if f.split(".")[-1].lower() == "arw":
+            if f.split(".")[-1].lower() in ["jpg","jpeg"]:
                 in_path = in_folder + f
                 if out_folder == "":  out_folder = in_folder
                 out_path = out_folder + f[:-4] + new_name_end + ".JPG"
 
-                process_arw_clahe(in_path, tileGridSize, grey=grey, out_path=out_path, metadata=metadata,
-                                  metadata_path="")
+                process_clahe(in_path, tileGridSize, grey=grey, out_path=out_path, clip_limit=clip_limit)
         except IndexError:
             pass
 
-def process_clahe_folder(in_folder, tileGridSize, grey=False, out_folder="", new_name_end="_Clahe"):
-    # Process all the .arw pictures in the following folder
-
-    flist = np.sort(os.listdir(in_folder))
-
-    for f in flist:
-        try:
-            if f.split(".")[-1].lower() == "jpg":
-                in_path = in_folder + f
-                if out_folder == "":  out_folder = in_folder
-                out_path = out_folder + f[:-4] + new_name_end + ".JPG"
-
-                process_clahe(in_path, tileGridSize, grey=grey, out_path=out_path)
-        except IndexError:
-            pass
 
 def process_clahe(in_path, tileGridSize, grey=False, out_path="", clip_limit=2):
+    """
+    Appy CLAHE (contrast limited adaptive histogram equalization) method on an image
+    for more information about CLAHE, see https://docs.opencv.org/3.1.0/d5/daf/tutorial_py_histogram_equalization.html
+
+    Overwriting image will raise an error, as the initial image is needed to copy-past metadata
+    :param in_path: input image
+    :param tileGridSize: size of the "blocks" to apply local histogram equalization
+    :param grey: if True, the image will be converted to grayscale
+    :param out_path: output path, the folders must exists and the image extension must be valid
+            by default, output will be saved as input_path/input_name_clahe.JPG
+    :param clip_limit: contrast limit, used to avoid too much noise
+    """
     if out_path == "":
         out_path = ".".join(inpath.split(".")[:-1]) + "_clahe.JPG"
+
+    # read input
     print("Processing CLAHE method on " + in_path.split("/")[-1])
-    img = cv2.imread(in_path)
-    if grey: img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img = cv.imread(in_path)
 
-    img = cv2.medianBlur(img, 3) # Median Filter
+    # convert color to gray
+    if grey: img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
-    clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(tileGridSize, tileGridSize))  # CLAHE
+    # apply a median filter before clahe
+    img = cv.medianBlur(img, 3)  
+    
+    # create clahe object
+    clahe = cv.createCLAHE(clipLimit=clip_limit, tileGridSize=(tileGridSize, tileGridSize))  # CLAHE
 
-    channels_ini = cv2.split(img)
+    # apply CLAHE for each image channel, and then recreate the full image (only useful if gray==False)
+    channels_ini = cv.split(img)
     channels_final = []
     for channel in channels_ini:
-        # Apply CLAHE for each channel
+        # Apply CLAHE
         channels_final.append(clahe.apply(channel))
+    img_final = cv.merge(channels_final)
 
-    img_final = cv2.merge(channels_final)
-
-    imageio.imsave(out_path, img_final)
+    # save image and write metadata from initial file
+    cv.imwrite(out_path, img_final)
     pyxif.transplant(in_path, out_path)
-
-def process_arw_clahe(in_path, tileGridSize, grey=False, out_path="", metadata=False, metadata_path="",
-                          clip_limit=2):
-
-    if metadata and metadata_path == "":
-        metadata_path = in_path[:-4] + ".JPG"
-
-    print("Processing CLAHE method on " + in_path.split("/")[-1])
-    rgb = open_SONY_raw(in_path, gamma=(2.222, 4.5), output_bps=16, brightness=1,
-                            exp_shift=8, exp_preserve_highlights=1)
-
-    im8bit = (rgb / 256).astype("uint8")  # Convert to 8-bits
-    if grey: im8bit = cv2.cvtColor(im8bit, cv2.COLOR_BGR2GRAY)  # Convert to gray
-
-    im8bit = cv2.medianBlur(im8bit, 3)  # Median Filter
-
-    clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(tileGridSize, tileGridSize))  # CLAHE
-
-    channels_ini = cv2.split(im8bit)
-    channels_final = []
-    for channel in channels_ini:
-        # Apply CLAHE for each channel
-        channels_final.append(clahe.apply(channel))
-
-    img_final = cv2.merge(channels_final)
-
-    # save picture, keep metadata
-    # metadata is taken from the JPG file with the same name in input folder
-    if metadata:
-        try:
-            imageio.imsave(out_path, img_final)
-            pyxif.transplant(metadata_path, out_path)
-        except IOError:
-            print("\033[0;31mWARNING Unable to open JPG , metadata are lost\033[0m")
-    else:
-        # Save the .JPG processed
-        imageio.imsave(out_path, img_final)
 
 
 if __name__ == "__main__":
     tic = time.time()
     inpath = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/Verif/Fin/"
-    process_clahe_folder(inpath,8,grey=True,new_name_end="_")
-    #process_clahe(inpath, 8, grey=False, out_path="", clip_limit=2)
-    #copyfile("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/TestdelaMortquitue/Mask/DSC00854.JPG",
-    #         "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/TestdelaMortquitue/Mask/DSC00854_clahe.JPG")
-
+    process_clahe_folder(inpath, 8, grey=True, new_name_end="_")
     toc = time.time()
     temps = abs(toc - tic)
     print("Executed in {} seconds".format(round(temps, 3)))

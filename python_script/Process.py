@@ -8,6 +8,7 @@ from pictures_process.Stats import blurr
 from shutil import copyfile, rmtree, copytree
 import time
 from pictures_process import Handle_CLAHE as cl
+from Utils import exec_mm3d, pictures_array_from_file
 
 
 def sort_pictures(folder_path_list, output_folder, ext="jpg", time=600):
@@ -140,35 +141,10 @@ def check_pictures(main_folder_path, secondary_folder_list, output_folder, pictu
     return pictures_array
 
 
-def pictures_array_from_file(filepath):
-    """
-    Could be way more efficient ! And does not handle any error for the moment
-    :param filepath:
-    :return:
-    """
-    print("Retrieving data from file " + filepath + "\n.......................................")
-    all_lines = []
-    with open(filepath, 'r') as file:
-        for line in file.readlines():
-            if line[0] != "#":
-                list_temp = line.split(',')
-                length = len(list_temp)
-                array_line = np.empty(length, dtype=object)
-                if list_temp[0].rstrip(" ").lower() == "true":
-                    array_line[0] = True
-                else:
-                    array_line[0] = False
-                for i in range(1, length):
-                    array_line[i] = list_temp[i].rstrip('\n')
-                all_lines.append(array_line)
-        print("Done")
-        return np.array(all_lines)
-
-
 def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac", ply_name="", clahe=False, resol=-1,
                      distortion_model="RadialStd", InCal=None, InOri=None, abs_coord_gcp=None,
-                     img_coord_gcp =None, pictures_Ori=None, re_estimate=False,
-                     master_img=None, masqpath_list=None, DefCor=0.0, shift=None, delete_temp=True):
+                     img_coord_gcp=None, pictures_Ori=None, re_estimate=False,
+                     master_img=None, masqpath_list=None, DefCor=0.0, shift=None, delete_temp=True, display_micmac=True):
     """
     copy needed files and process micmac for a set of given pictures (filepath_list)
     It is advised to give only absolute path in parameters
@@ -199,9 +175,10 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
     :param DefCor:
     :param shift: shift for saving ply (if numbers are too big for 32 bit ply) [shiftE, shiftN, shiftZ]
     :param delete_temp: if False the temporary folder will not be deleted, but beware, MicMac files are quite heavy
+    :param display_micmac: if False MicMac log will be hidden, may be useful as this may ba a bit messy sometimes
     :return:
     """
-    ####################################################################################################################
+    # ==================================================================================================================
     # checking path and parameters :
 
     # check output folder
@@ -224,7 +201,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
             print("Mask ignored")
             masqpath_list = None
 
-    ####################################################################################################################
+    # ==================================================================================================================
     # copy pictures into the temporary folder
     pictures_pattern = "("  # pattern of pictures telling MicMac which one to process
     for i in range(len(filepath_list)):
@@ -238,8 +215,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
         else:
             # apply the CLAHE method, used for the orientation
             cl.process_clahe(filepath
-                                  , 8, out_path=folder_path + filename, grey=True)
-
+                             , 8, out_path=folder_path + filename, grey=True)
 
         # copy mask corresponding to the picture
         if masqpath_list is not None:
@@ -253,18 +229,18 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
                 wxml.write_masq_xml(masqpath_list[i], folder_path + '.'.join(filename.split('.')[:-1]) + "_Masq.xml")
     pictures_pattern = pictures_pattern[:-1] + ")"
 
-    ####################################################################################################################
+    # ==================================================================================================================
     # detection of Tie points
     os.chdir(folder_path)
     # first detection of Tie points with the option ExpTxt=1 to make a report with txt
     command = 'mm3d Tapioca All "{}" {} ExpTxt=1'.format(pictures_pattern, resol)
     print("\033[0;33" + command + "\033[0m")
-    os.system(command)
+    success, error = exec_mm3d(command,display_micmac)
     # second detection of Tie points at a lower resolution, without ExpTxt=1, just to avoid a stupid MicMac bug in C3DC
     # MicMac will just convert txt to binary
     command = 'mm3d Tapioca All "{}" {}'.format(pictures_pattern, resol)
     print("\033[0;33" + command + "\033[0m")
-    os.system(command)
+    success, error = exec_mm3d(command, display_micmac)
 
     # Orientation of cameras
 
@@ -289,9 +265,9 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
         if re_estimate:
             ori += "_R"
             command = 'echo | mm3d Tapas {} "{}" InOri={} Out={}'.format(distortion_model, pictures_pattern,
-                                                                  InOri.split('/')[-2], ori)
+                                                                         InOri.split('/')[-2], ori)
             print("\033[0;33" + command + "\033[0m")
-            os.system(command)
+            success, error = exec_mm3d(command, display_micmac)
         else:
             ori = InOri.split('/')[-2]  # name of the new ori is the same as the initial one
 
@@ -305,14 +281,13 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
         command = 'echo | mm3d Tapas {} "{}" InCal={}'.format(distortion_model, pictures_pattern,
                                                               InCal.split('/')[-2])
         print("\033[0;33" + command + "\033[0m")
-        os.system(command)
+        success, error = exec_mm3d(command, display_micmac)
 
     # if no initial parameters, classic orientation computation
     else:
         command = 'echo | mm3d Tapas {} "{}"'.format(distortion_model, pictures_pattern)
         print("\033[0;33" + command + "\033[0m")
-        os.system(command)
-
+        success, error = exec_mm3d(command, display_micmac)
 
     # if GCP are provided for Bascule (Absolute orientation)
     if abs_coord_gcp is not None and img_coord_gcp is not None:
@@ -324,13 +299,12 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
         wxml.write_S2D_xmlfile(img_coord_gcp, folder_path + "GCP-S2D.xml")
 
         command = 'echo | mm3d GCPBascule "{}" {} Bascule {} {}'.format(pictures_pattern,
-                                                                      ori,
-                                                                      gcp_name,
-                                                                      "GCP-S2D.xml")
+                                                                        ori,
+                                                                        gcp_name,
+                                                                        "GCP-S2D.xml")
         print(command)
-        os.system(command)
+        success, error = exec_mm3d(command, display_micmac)
         ori = 'Bascule'
-
 
     # dense correlation
 
@@ -345,7 +319,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
     command = 'echo | mm3d Malt GeomImage "{}" {} Master={} DefCor={} MasqIm=Masq'.format(pictures_pattern, ori,
                                                                                           master_img, DefCor)
     print("\033[0;33" + command + "\033[0m")
-    os.system(command)
+    success, error = exec_mm3d(command, display_micmac)
 
     # creation of the final point cloud file todo la derniere etape est tjrs 8 ?
 
@@ -358,11 +332,9 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
             '.'.join(master_img.split('.')[:-1]), master_img, ply_name, shift)
 
     print("\033[0;33" + command + "\033[0m")
-    os.system(command)
+    success, error = exec_mm3d(command, display_micmac)
 
-    os.system('exit')
-
-    ####################################################################################################################
+    # ==================================================================================================================
     # Make stats about the reconstruction
     with open(date_str + '_recap.txt', 'w') as recap:
         recap.write("Summary of MicMac 3D reconstruction for " + date_str + "\n")
@@ -416,8 +388,8 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
             rmtree(folder_path + "Pastis")
             rmtree(folder_path + "Tmp-MM-Dir")
             rmtree(folder_path + "Pyram")
-        except:
-            pass
+        except PermissionError:
+            print("Permission Denied, cannot delete some MicMac files")
 
 
 def process_from_array(main_folder_path, secondary_folder_list, pictures_array, InCal=None, InOri=None,
@@ -499,8 +471,8 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
             exit(1)
         # retrieve gcp measures for all image in a dictionary
         all_gcp = rxml.read_S2D_xmlfile(gcp_S2D)
-
-
+    else:
+        all_gcp = None
 
     if masq2D is not None:
         print("Collecting mask path")
@@ -547,13 +519,10 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
 
                 print(info)
 
-                if gcp_S2D is not None and gcp is not None:
+                if all_gcp is not None:
                     # create a dictionary with gcp image coordinates of this picture set
                     try:
-                        print(line[1:])
-                        print(all_gcp)
                         set_gcp = dict([(k, all_gcp.get(k)) for k in line[1:]])
-                        print(set_gcp)
                     except AttributeError:
                         print("Couldn't find gcp measures for this set of pictures in S2D xml\nSet ignored")
                         continue
@@ -591,7 +560,7 @@ if __name__ == "__main__":
     process_from_array(main_folder_path, folders, array,
                        output_folder=output_folder, resol=2000, master_folder=2,
                        masq2D=masq2D, DefCor=0.4, InOri=inori, re_estimate=True,
-                       clahe=True, delete_temp=False, gcp_S2D= S2D, gcp=truc,
+                       clahe=True, delete_temp=False, gcp_S2D=S2D, gcp=truc,
                        distortion_model="Fraser")
     # [410000, 6710000, 0]
     toc = time.time()

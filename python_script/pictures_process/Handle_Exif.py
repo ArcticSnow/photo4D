@@ -1,5 +1,8 @@
 # coding : utf8
-
+"""
+Some short function to load metadata using pyxif (MIT License), available at :
+                         https://github.com/zenwerk/Pyxif
+"""
 
 from datetime import datetime
 import sys
