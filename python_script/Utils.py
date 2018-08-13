@@ -5,7 +5,7 @@ Some useful functions
 from subprocess import Popen, PIPE, STDOUT
 import sys
 import numpy as np
-import os
+from pictures_process.Handle_Exif import load_date
 
 
 def exec_mm3d(command, display=True):
@@ -33,11 +33,16 @@ def exec_mm3d(command, display=True):
                 print("Error in MicMac process, abort process")
                 process.kill()
                 return 1, None
+            elif 'Warn tape enter to continue' in line:
+                print("Value error in Tapas, abort process")
+                process.kill()
+                return 1,'Value error in Tapas'
         except UnicodeDecodeError:
             sys.stdout.write('---cannot decode this line---')
 
     # if no error occurs
     return 0, None
+
 
 def pictures_array_from_file(filepath):
     """
@@ -49,7 +54,7 @@ def pictures_array_from_file(filepath):
     all_lines = []
     with open(filepath, 'r') as file:
         for line in file.readlines():
-            if line[0] != "#":
+            if line[0] != "#" :
                 list_temp = line.split(',')
                 length = len(list_temp)
                 array_line = np.empty(length, dtype=object)
@@ -62,7 +67,5 @@ def pictures_array_from_file(filepath):
                 all_lines.append(array_line)
         print("Done")
         return np.array(all_lines)
-if __name__ == "__main__":
 
-    os.chdir()
-    exec_mm3d('mm3d Tapioca All (DSC00853.JPG|DSC01954.JPG|DSC03469.JPG) {} ExpTxt=1')
+pictures_array_from_file("C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/linkedFiles_checked.txt")

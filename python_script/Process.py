@@ -11,7 +11,7 @@ from pictures_process import Handle_CLAHE as cl
 from Utils import exec_mm3d, pictures_array_from_file
 
 
-def sort_pictures(folder_path_list, output_folder, ext="jpg", time=600):
+def sort_pictures(folder_path_list, output_folder, ext="JPG", time=600):
     """
     Regroup pictures from different folders if they are taken within time seconds of interval.
     Result is stored in an array/file,
@@ -29,7 +29,7 @@ def sort_pictures(folder_path_list, output_folder, ext="jpg", time=600):
         flist = os.listdir(folder_path)
         for filename in flist:
             try:
-                if filename.split(".")[-1].lower() == ext:
+                if filename.split(".")[-1] == ext:
                     image_date_list.append((filename, load_date(folder_path + filename)))
             except IndexError:
                 pass
@@ -43,7 +43,7 @@ def sort_pictures(folder_path_list, output_folder, ext="jpg", time=600):
 
     sorted_pictures = []
     print("Checking dates\n..........................................")
-    with open("linkedFiles.txt", 'w') as f:
+    with open("linked_files.txt", 'w') as f:
         f.write("# Pictures taken within {} of interval\n".format(time))
 
     good, bad = 0, 0  # counters for correct and wrong sets
@@ -72,7 +72,7 @@ def sort_pictures(folder_path_list, output_folder, ext="jpg", time=600):
             pic_group[0] = True
             print("Pictures found in every folder corresponding to the time of " + pic_group[1] + "\n")
             sorted_pictures.append(pic_group)
-            with open(output_folder + "linkedFiles.txt", 'a') as f:
+            with open(output_folder + "linked_files.txtt", 'a') as f:
                 f.write(str(pic_group[0]) + "," + ",".join(pic_group[1:]) + "\n")
         else:
             bad += 1
@@ -80,21 +80,21 @@ def sort_pictures(folder_path_list, output_folder, ext="jpg", time=600):
 
     end_str = "{} good set of pictures found, {} uncomplete sets, with a total of {} sets".format(good, bad, good + bad)
     print(end_str)
-    with open(output_folder + "linkedFiles.txt", 'a') as f:
+    with open(output_folder + "linked_files.txt", 'a') as f:
         f.write(end_str)
     return sorted_pictures
 
 
-def check_pictures(main_folder_path, secondary_folder_list, output_folder, pictures_array, lum_inf, blur_inf,
-                   replace_log=True):
+def check_pictures(folder_list, output_path, pictures_array, lum_inf, blur_inf,
+                   ):
     """
     This function is supposed to be called after sort_pictures, as it uses the kind of array created by sort_pictures,
-    which could be either collected from the return value of the function, or the file "linkedFiles.txt" created in
+    which could be either collected from the return value of the function, or the file "linked_files.txt" created in
     the main folder
     It will filter pictures in which brightness is inferior to lum_inf and the "blur" (variance of Laplacian) is
     inferior to blur_min
-    :param main_folder_path:
-    :param secondary_folder_list:
+    :param folder_list:
+    :param output_path:
     :param pictures_array:
     :param lum_inf:
     :param blur_min:
@@ -102,11 +102,7 @@ def check_pictures(main_folder_path, secondary_folder_list, output_folder, pictu
     """
     print("Checking pictures\n..........................................")
 
-    if replace_log:
-        log_name = "linkedFiles.txt"
-    else:
-        log_name = "linkedFiles_checked.txt"
-    with open(output_folder + log_name, 'w') as f:
+    with open(output_path, 'w') as f:
         f.write(
             "# Pictures filtered with a minimum value of {} for brightness, {} for the variance of Laplacian\n".format(
                 lum_inf, blur_inf))
@@ -118,7 +114,7 @@ def check_pictures(main_folder_path, secondary_folder_list, output_folder, pictu
             min_lum = 9999
             min_blur = 9999
             for j in range(1, J):
-                path = main_folder_path + secondary_folder_list[j - 1] + pictures_array[i, j]
+                path = folder_list[j - 1] + pictures_array[i, j]
                 lum = load_lum(path)
 
                 if lum < min_lum:
@@ -133,7 +129,7 @@ def check_pictures(main_folder_path, secondary_folder_list, output_folder, pictu
             else:
                 good += 1
 
-    with open(output_folder + log_name, 'a') as f:
+    with open(output_path, 'a') as f:
         for line in pictures_array:
             f.write(str(line[0]) + "," + ",".join(line[1:]) + "\n")
         f.write(
@@ -142,8 +138,8 @@ def check_pictures(main_folder_path, secondary_folder_list, output_folder, pictu
 
 
 def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac", ply_name="", clahe=False, resol=-1,
-                     distortion_model="RadialStd", InCal=None, InOri=None, abs_coord_gcp=None,
-                     img_coord_gcp=None, pictures_Ori=None, re_estimate=False,
+                     distortion_model="RadialStd", incal=None, inori=None, abs_coord_gcp=None,
+                     img_coord_gcp=None, pictures_ini=None, re_estimate=False,
                      master_img=None, masqpath_list=None, DefCor=0.0, shift=None, delete_temp=True,
                      display_micmac=True):
     """
@@ -163,9 +159,9 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
             -1 stands for full resolution
     :param distortion_model: distortion model used in Tapas
             can be "Fraser", "FraserBasic", "RadialStd", "RadialBasic" and more
-    :param InCal: path to initial calibration folder (from MicMac), None if no initial calibration used
-    :param InOri: path to initial orientation folder (from MicMac), None if no initial orientation used
-    :param pictures_Ori: pictures of initial calibration, in the same order as secondary folder list
+    :param incal: path to initial calibration folder (from MicMac), None if no initial calibration used
+    :param inori: path to initial orientation folder (from MicMac), None if no initial orientation used
+    :param pictures_ini: pictures of initial calibration, in the same order as secondary folder list
     :param re_estimate: -only if there is an initial orientation- if True, re estimate the orientation
     :param abs_coord_gcp: xml file containing absolute coordinates of GCPs, file from the MicMac command GCPConvert
     :param img_coord_gcp: xml file containing image coordinates of the GCPs, result one of the SaisieAppuis command in MicMac
@@ -257,36 +253,36 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
 
     ori = distortion_model  # name of orientation, it is the distortion model by default
     # if there is an initial orientation
-    if InOri is not None:
+    if inori is not None:
 
-        if InOri[-1] != "/": InOri += "/"
+        if inori[-1] != "/": inori += "/"
         # copy the initial orientation file
-        new_Ori_path = folder_path + InOri.split('/')[-2] + "/"
+        new_Ori_path = folder_path + inori.split('/')[-2] + "/"
         if not os.path.exists(new_Ori_path):
-            copytree(InOri, new_Ori_path)  # We assume that the path is correctly written ( "/Root/folder/Ori-Truc/")
+            copytree(inori, new_Ori_path)  # We assume that the path is correctly written ( "/Root/folder/Ori-Truc/")
         # swap pictures names to mock MicMac computed orientation files
-        wxml.change_Ori(pictures_Ori, final_pictures, new_Ori_path)
+        wxml.change_Ori(pictures_ini, final_pictures, new_Ori_path)
 
         # if re_estimate, MicMac recompute the orientation
         if re_estimate:
             ori += "_R"
-            command = 'mm3d Tapas {} {} InOri={} Out={}'.format(distortion_model, pictures_pattern,
-                                                                InOri.split('/')[-2], ori)
+            command = 'mm3d Tapas {} {} inori={} Out={}'.format(distortion_model, pictures_pattern,
+                                                                inori.split('/')[-2], ori)
             print("\033[0;33" + command + "\033[0m")
             success, error = exec_mm3d(command, display_micmac)
         else:
-            ori = InOri.split('/')[-2]  # name of the new ori is the same as the initial one
+            ori = inori.split('/')[-2]  # name of the new ori is the same as the initial one
             succes, error = 0, None
 
     # if there is no initial orientation but an initial calibration
     # it assumed that the calibration is the same for every picture
-    elif InCal is not None:
-        if InCal[-1] != "/": InCal += "/"
-        new_Cal_path = folder_path + InCal.split('/')[-2] + "/"
+    elif incal is not None:
+        if incal[-1] != "/": incal += "/"
+        new_Cal_path = folder_path + incal.split('/')[-2] + "/"
         if not os.path.exists(new_Cal_path):
-            copytree(InCal, new_Cal_path)  # We assume that the path is correctly written ( "/fgg/Ori-Truc/")
-        command = 'mm3d Tapas {} {} InCal={}'.format(distortion_model, pictures_pattern,
-                                                     InCal.split('/')[-2])
+            copytree(incal, new_Cal_path)  # We assume that the path is correctly written ( "/fgg/Ori-Truc/")
+        command = 'mm3d Tapas {} {} incal={}'.format(distortion_model, pictures_pattern,
+                                                     incal.split('/')[-2])
         print("\033[0;33" + command + "\033[0m")
         success, error = exec_mm3d(command, display_micmac)
 
@@ -341,7 +337,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
             '.'.join(master_img.split('.')[:-1]), master_img, ply_name)
     else:
         command = 'mm3d Nuage2Ply MM-Malt-Img-{}/NuageImProf_STD-MALT_Etape_8.xml Attr={} Out={} Offs={}'.format(
-            '.'.join(master_img.split('.')[:-1]), master_img, ply_name, shift)
+            '.'.join(master_img.split('.')[:-1]), master_img, ply_name, str(shift).replace(" ", ""))
 
     print("\033[0;33" + command + "\033[0m")
     success, error = exec_mm3d(command, display_micmac)
@@ -363,10 +359,10 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
         else:
             recap.write("\nStatus  : Failure\n")
 
-        if InOri is not None:
-            recap.write("\n Initial orientation used  : " + InOri + "\n")
-        elif InCal is not None:
-            recap.write("\n Initial calibration used  : " + InCal + "\n")
+        if inori is not None:
+            recap.write("\n Initial orientation used  : " + inori + "\n")
+        elif incal is not None:
+            recap.write("\n Initial calibration used  : " + incal + "\n")
 
         # write a .txt with residuals
         if ori[:4] == "Ori-":
@@ -404,37 +400,36 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
             print("Permission Denied, cannot delete some MicMac files")
 
 
-def process_from_array(main_folder_path, secondary_folder_list, pictures_array, InCal=None, InOri=None,
-                       pictures_ori=None, gcp=None, gcp_S2D=None, output_folder="",
+def process_from_array(folders_list, pictures_array, output_folder, incal=None, inori=None,
+                       pictures_ini=None, gcp=None, gcp_S2D=None,
                        clahe=False, resol=-1,
-                       distortion_model="RadialStd",
+                       distortion_model="Fraser",
                        re_estimate=False, master_folder=0, masq2D=None, DefCor=0.0, shift=None, delete_temp=True,
-                       display_micmac=True):
+                       display_micmac=True, cond=None):
     """
     Do the 3D reconstruction of pictures using MicMac
 
     Mandatory arguments :
-    :param main_folder_path: path of the folder containing the camera folders, results are saved here by default
-    :param secondary_folder_list: list of path to picture folders
+    :param folders_list: list of path to picture folders
             pictures are stored in a folder per camera
     :param pictures_array: array containing names of pictures to process
             each row is considered as a set, and pictures names must be in the same order as secondary_folder_list
+    :param output_folder: where output file will be saved as well as where the temporary files will be created
     Reconstruction argument :
     :param resol: resolution for the research of TiePoints
             -1 stands for full resolution
     :param distortion_model: distortion model used in Tapas
             can be "Fraser", "FraserBasic", "RadialStd", "RadialBasic" and more
-    :param InCal: path to initial calibration folder (from MicMac), None if no initial calibration used
-    :param InOri: path to initial orientation folder (from MicMac), None if no initial orientation used
-    :param pictures_Ori: pictures of initial calibration, in the same order as secondary folder list
+    :param incal: path to initial calibration folder (from MicMac), None if no initial calibration used
+    :param inori: path to initial orientation folder (from MicMac), None if no initial orientation used
+    :param pictures_ini: pictures of initial calibration, in the same order as secondary folder list
              None if the pictures are in pictures_array, they will be automatically detected
     :param re_estimate: -only if there is an initial orientation- if True, re estimate the orientation
-    :param gcp: .xml file containing coordinates of GCPs, file from the MicMac command GCPConvert
-    :param gcp_S2D: xml file containing image coordinates of the GCPs, result one of the SaisieAppuis command in MicMac
-    :param pictures_gps: pictures used in GCP_S2D, in the same order as secondary folder list
-    :param output_folder:
-    :param master_folder: list indice of the folder where "master images" for Malt reconstruction are stored
-            by defaut it is the first folder
+    :param gcp: .xml file containing coordinates of GCPs, file from the MicMac command "GCPConvert"
+    :param gcp_S2D: xml file containing image coordinates of the GCPs, result one of the "SaisieAppuis" command in MicMac
+
+    :param master_folder: list index of the folder where "master images" for Malt reconstruction are stored
+            by default it is the first folder
     :param masq2D:
     :param shift: shift for saving ply (if numbers are too big for 32 bit ply) [shiftE, shiftN, shiftZ]
     :param delete_temp: if False the temporary folder will not be deleted, but beware, MicMac files are quite heavy
@@ -446,21 +441,31 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
     # it is assumed that all pictures have the same extension
     ext = pictures_array[0, 1].split('.')[-1].lower()
 
-    if type(master_folder) != int or not (0 <= master_folder < len(secondary_folder_list)):
+    nb_folders = len(folders_list)
+
+    for i in range(nb_folders):
+        if folders_list[i][-1] != "/": folders_list[i] += "/"
+        if not os.path.exists(folders_list[i]):
+            print("WARNING the folder {} in folders_list does not exist".format(folders_list[i]))
+
+    if cond is None:
+        def cond(datetime): return True
+
+    if type(master_folder) != int or not (0 <= master_folder < nb_folders):
         print("Invalid value {} for parameter master folder, value set to 0".format(master_folder))
         print("must be one index of the array secondary_folder_list")
         master_folder = 0
 
-    # if pictures_Ori is not provided but there is an initial orientation, retrieve it from pictures array
-    if InOri is not None and pictures_ori is None:
-        # find the name of one picture used in InOri, using Orientation files
-        flist = os.listdir(InOri)
+    # if pictures_ini is not provided but there is an initial orientation, retrieve it from pictures array
+    if inori is not None and pictures_ini is None:
+        # find the name of one picture used in inori, using Orientation files
+        flist = os.listdir(inori)
         image = ""
         for file in flist:
             if len(file) > 12 and file[:12] == "Orientation-":
                 image = file[12:-4]  # todo qu'est ce que c'est moche
                 break
-        # find the row of this picture in pictures_array and use it as pictures_ori
+        # find the row of this picture in pictures_array and use it as pictures_ini
         nb_sets, nb_pics = pictures_array.shape
         i = 0
         found = False
@@ -473,8 +478,8 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
             i += 1
         if i == nb_sets - 1 and not found:
             raise ValueError("Cannot find initial orientation pictures in pictures array\n"
-                             "Please fill parameter pictures_ori")
-        pictures_ori = pictures_array[i - 1, 1:]
+                             "Please fill parameter pictures_ini")
+        pictures_ini = pictures_array[i - 1, 1:]
 
     if gcp is not None and gcp_S2D is not None:
         if gcp[-4:] != ".xml":
@@ -518,15 +523,13 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
 
         if line[0]:  # line[0] is a boolean, True if the set is correct
             list_path = []
-            for i in range(1, len(secondary_folder_list) + 1):
-                list_path.append(main_folder_path + secondary_folder_list[i - 1] + str(line[i]))
+            for i in range(1, len(folders_list) + 1):
+                list_path.append(folders_list[i - 1] + str(line[i]))
             # determining which of the pictures is the master image for dense correlation (Malt)
             master_img = line[master_folder + 1]
             date = load_date(list_path[0])
-            h = date.hour
 
-            if h == 11:
-
+            if cond(date):
                 info = "Processing pictures taken on " + str(date) + ":\n  "
                 for img in line[1:]:
                     info += img + "  "
@@ -545,7 +548,7 @@ def process_from_array(main_folder_path, secondary_folder_list, pictures_array, 
 
                 copy_and_process(
                     list_path,
-                    output_folder=output_folder, InCal=InCal, InOri=InOri, pictures_Ori=pictures_ori, abs_coord_gcp=gcp,
+                    output_folder=output_folder, incal=incal, inori=inori, pictures_ini=pictures_ini, abs_coord_gcp=gcp,
                     img_coord_gcp=set_gcp, re_estimate=re_estimate,
                     master_img=master_img, masqpath_list=masqpath_list,
                     resol=resol, distortion_model=distortion_model,
@@ -562,18 +565,20 @@ if __name__ == "__main__":
     #              "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeur nature/Pictures/cam_mid/"])
 
     array = pictures_array_from_file(
-        "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/linkedFiles.txt")
-    folders = ["cam_est/", "cam_ouest/", "cam_mid/"]
-    main_folder_path = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/"
+        "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/linked_files.txt")
+    main_folder = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/"
+    folders = [main_folder + "cam_est/",
+               main_folder + "cam_ouest/",
+               main_folder + "cam_mid/"]
     output_folder = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/TestdelaMortquitue/Results/"
     masq2D = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/TestdelaMortquitue/Mask/"
     inori = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/TestdelaMortquitue/Ori-Fraser/"
     S2D = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/All_points-S2D.xml"
     truc = "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/GCP/Pt_gps_gcp.xml"
 
-    process_from_array(main_folder_path, folders, array,
+    process_from_array(folders, array,
                        output_folder=output_folder, resol=2000, master_folder=2,
-                       masq2D=masq2D, DefCor=0.4, InOri=inori, re_estimate=True,
+                       masq2D=masq2D, DefCor=0.4, inori=inori, re_estimate=True,
                        clahe=True, delete_temp=False, gcp_S2D=S2D, gcp=truc,
                        distortion_model="Fraser", display_micmac=True)
     # [410000, 6710000, 0]

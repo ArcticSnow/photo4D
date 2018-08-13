@@ -186,4 +186,4 @@ def get_tiepoints_from_txt(path):
 
 if __name__ == "__main__":
     print(read_S2D_xmlfile(
-        "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/MicMac_Initial/GCP-S2D.xml"))
+        "C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/all_points-S2D_dist_max.xml"))

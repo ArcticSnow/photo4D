@@ -107,10 +107,11 @@ def detect_from_s2d_xml(s2d_xml_path, folder_list, pictures_array, samples_folde
                     print("\n  Detection of point {} in folder  {}/{}".format(gcp, i + 1, nb_folders))
                     pos_ini = dict_measures[gcp]
                     date = load_date(folder_list[i] + image)
-                    # add a line for same image # todo cest utile ?
+                    # add a line for the master image, with the gcp position, because micmac won't launch
+                    # the detection on this one, but the point coordinates are still useful
                     panda_result.append(
-                        [image, gcp, pos_ini[0], pos_ini[1], i, date,
-                         pos_ini[0], pos_ini[1], pos_ini[0], pos_ini[1], image])
+                        [image, gcp, window_size[0]/2, window_size[1]/2, i, date,
+                         window_size[0] / 2, window_size[1] / 2, pos_ini[0], pos_ini[1], image])
 
                     # creation of extract for each picture of the folder, around the point initial position
                     print("  Create extract for detection :\n")
@@ -187,9 +188,6 @@ def extract_values(df, threshold=50, nb_values=5, max_dist=50, window_size=(200,
     columns :
     ['Image', 'GCP', 'Xpos', 'Ypos', 'nb_tiepoints', 'date','nb_close_tiepoints']
     """
-    if method not in ['Median']:
-        print('Method must be one of these values\nMedian')
-        exit(1)
 
     # compute new positions of GCP according to the shift of each tie point
     df['Xshift'] = df.Xgcp_ini + df.Xdetect - df.Xini
@@ -219,28 +217,40 @@ def extract_values(df, threshold=50, nb_values=5, max_dist=50, window_size=(200,
             group_gcp_filtered = group_gcp.loc[group_gcp.dist <= max_dist]
             nb_close_tiepoints = group_gcp_filtered.shape[0]
             group2 = group_gcp_filtered.nsmallest(nb_values, 'dist')
-            if method == "Median":
-                measure = group2.Xshift.median(), group2.Yshift.median()
-            date = group2.date.min()
-            dic_gcp[gcp] = measure
-            result.append([image, gcp, measure[0], measure[1], nb_tiepoints, date, nb_close_tiepoints])
-        dic_image_gcp[image] = dic_gcp
+            print(group_gcp_filtered.shape)
+            if group_gcp_filtered.shape[0] != 0: # if there is no values left in DataFrame, the point is ignored
+                if method == "Median":
+                    measure = group2.Xshift.median(), group2.Yshift.median()
+                elif method == "Mean":
+                    measure = group2.Xshift.mean(), group2.Yshift.mean()
+                elif method == 'Min':
+                    measure = group2.Xshift.min(), group2.Yshift.min()
+                else:
+                    print('Method must be one of these values:\n"Median"\n"Min"\n"Mean"')
+                    exit(1)
+                date = group2.date.min()
+                dic_gcp[gcp] = measure
+
+
+                result.append([image, gcp, measure[0], measure[1], nb_tiepoints, date, nb_close_tiepoints])
+        if dic_gcp != {}: dic_image_gcp[image] = dic_gcp
+
 
     return dic_image_gcp, pd.DataFrame(result, columns=['Image', 'GCP', 'Xpos', 'Ypos', 'nb_tiepoints', 'date',
                                                         'nb_close_tiepoints'])
 
 
 if __name__ == "__main__":
-    df = detect_from_s2d_xml(
-        "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/MicMac_Initial/last_set-S2D.xml",
-        ["C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/cam_est",
-         "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/cam_ouest",
-         "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/cam_mid"],
-        pictures_array=pictures_array_from_file(
-            "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/linkedFiles.txt"),
-        display_micmac=False
-    )
-    df.to_csv("C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/test_beau.csv", sep=",")
-    df = pd.read_csv("C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/test_beau.csv")
-    print(df.to_string())
-    print(extract_values(df, threshold=50, nb_values=5, max_dist=200, method="Median")[1].to_string())
+    #df = detect_from_s2d_xml(
+    #     "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/MicMac_Initial/last_set-S2D.xml",
+    #     ["C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/cam_est",
+    #      "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/cam_ouest",
+    #      "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/cam_mid"],
+    #     pictures_array=pictures_array_from_file(
+    #         "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/linkedFiles.txt"),
+    #     display_micmac=False
+    # )
+    #df.to_csv("C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/test_beau.csv", sep=",")
+    df = pd.read_csv("C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/test_sift_camtot_new_gcp.csv")
+    result = extract_values(df, threshold=50, nb_values=5, max_dist=200, method="Median")
+    print(result[0])
