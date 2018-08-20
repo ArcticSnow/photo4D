@@ -1,11 +1,10 @@
 import cv2 as cv
 import os
 from Process import pictures_array_from_file
-from WriteMicMacFiles import WriteXml as wxml
-from WriteMicMacFiles import ReadXml as rxml
+import XML_utils as uxml
 from shutil import rmtree
 import pandas as pd
-from pictures_process.Handle_Exif import load_date
+from Image_utils import load_date
 import numpy as np
 from Utils import exec_mm3d
 
@@ -86,7 +85,7 @@ def detect_from_s2d_xml(s2d_xml_path, folder_list, pictures_array, samples_folde
 
     # ==================================================================================================================
     # collect data from xml
-    dict_img = rxml.read_S2D_xmlfile(s2d_xml_path)
+    dict_img = uxml.read_S2D_xmlfile(s2d_xml_path)
     panda_result = []  # store all the results
     # iterate over pictures
     for image in dict_img.keys():
@@ -128,7 +127,7 @@ def detect_from_s2d_xml(s2d_xml_path, folder_list, pictures_array, samples_folde
                     # launch Tapioca on the selected files
                     #  ==============================================
                     # create file telling MicMac which files to process
-                    wxml.write_couples_file(samples_folder_list[i] + gcp + "/" + "couples.xml", image, images_list)
+                    uxml.write_couples_file(samples_folder_list[i] + gcp + "/" + "couples.xml", image, images_list)
                     os.chdir(samples_folder_list[i] + gcp + "/")
                     print("\n  Launching MicMac...")
                     command = "mm3d Tapioca File couples.xml -1 ExpTxt=1"
@@ -136,12 +135,13 @@ def detect_from_s2d_xml(s2d_xml_path, folder_list, pictures_array, samples_folde
 
                     # read results and append it to result
                     #  ==============================================
+                    print(success)
                     if success == 0:
                         print("  Tapioca executed with success, reading results")
                         # read output txt files
                         for picture_recap in os.listdir("Homol/Pastis" + image):
-                            if picture_recap.split(".")[-1] == ".txt":
-                                tie_points = rxml.get_tiepoints_from_txt("Homol/Pastis" + image + "/" + picture_recap)
+                            if picture_recap.split(".")[-1] == "txt":
+                                tie_points = uxml.get_tiepoints_from_txt("Homol/Pastis" + image + "/" + picture_recap)
                                 date = load_date(folder_list[i] + picture_recap[:-4])
 
                                 for tie_point in tie_points:
@@ -201,7 +201,6 @@ def extract_values(df, magnitude_max=50, nb_values=5, max_dist=50, kernel_size=(
 
     # compute from gcp and tie point in the initial image (gcp is in the center of the extracts)
     pos_center = kernel_size[0] / 2, kernel_size[1] / 2
-    print(pos_center)
     df['dist'] = np.sqrt((df.Xini - pos_center[0]) ** 2 + (df.Yini - pos_center[1]) ** 2)
 
     # filter outliers having a incoherent magnitude
@@ -217,7 +216,6 @@ def extract_values(df, magnitude_max=50, nb_values=5, max_dist=50, kernel_size=(
             group_gcp_filtered = group_gcp.loc[group_gcp.dist <= max_dist]
             nb_close_tiepoints = group_gcp_filtered.shape[0]
             group2 = group_gcp_filtered.nsmallest(nb_values, 'dist')
-            print(group_gcp_filtered.shape)
             if group_gcp_filtered.shape[0] != 0: # if there is no values left in DataFrame, the point is ignored
                 if method == "Median":
                     measure = group2.Xshift.median(), group2.Yshift.median()
@@ -241,16 +239,17 @@ def extract_values(df, magnitude_max=50, nb_values=5, max_dist=50, kernel_size=(
 
 
 if __name__ == "__main__":
-    #df = detect_from_s2d_xml(
-    #     "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/MicMac_Initial/last_set-S2D.xml",
-    #     ["C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/cam_est",
-    #      "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/cam_ouest",
-    #      "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/cam_mid"],
-    #     pictures_array=pictures_array_from_file(
-    #         "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/linkedFiles.txt"),
-    #     display_micmac=False
-    # )
-    #df.to_csv("C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/test_beau.csv", sep=",")
-    df = pd.read_csv("C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/test_sift_camtot_new_gcp.csv")
-    result = extract_values(df, threshold=50, nb_values=5, max_dist=200, method="Median")
-    print(result[0])
+    df = detect_from_s2d_xml(
+        "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/Mini_projet/GCP/GCPs_pick-S2D.xml",
+        ["C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/Mini_projet/Images/Cam_east",
+         "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/Mini_projet/Images/Cam_mid",
+         "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/Mini_projet/Images/Cam_west"],
+        pictures_array=pictures_array_from_file(
+            "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/Mini_projet/set_definition.txt"),
+        display_micmac=False
+     )
+    print(df)
+    df.to_csv("C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/test_beau.csv", sep=",")
+    # df = pd.read_csv("C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/test_sift_camtot_new_gcp.csv")
+    # result = extract_values(df, threshold=50, nb_values=5, max_dist=200, method="Median")
+    # print(result[0])

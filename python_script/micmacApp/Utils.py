@@ -5,7 +5,7 @@ Some useful functions
 from subprocess import Popen, PIPE, STDOUT
 import sys
 import numpy as np
-from pictures_process.Handle_Exif import load_date
+from Image_utils import load_date
 
 
 
@@ -51,7 +51,7 @@ def pictures_array_from_file(filepath):
     :param filepath:
     :return:
     """
-    print("Retrieving data from file " + filepath + "\n.......................................")
+    print("\nRetrieving data from file " + filepath + "\n.......................................")
     all_lines = []
     with open(filepath, 'r') as file:
         for line in file.readlines():

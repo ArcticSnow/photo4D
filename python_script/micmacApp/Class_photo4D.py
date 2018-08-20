@@ -10,7 +10,7 @@ Program XXX Part I
 # import public library
 import os
 from os.path import join as opj
-import numpy as np
+import numpy as np, pandas as pd
 from typing import Union
 from shutil import copyfile, rmtree, copytree
 
@@ -26,6 +26,7 @@ class Photo4d(object):
     IMAGE_FOLDER = "Images"
     MASK_FOLDER = "Masks"
     GCP_FOLDER = "GCP"
+    DF_DETECT = "df_detect.csv"
     GCP_xml = 'GCPs_pick'
 
     def __init__(self, project_path):
@@ -62,6 +63,12 @@ class Photo4d(object):
             print("Masks created from ")
         else:
             self.masks = None
+
+        if os.path.exists(opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.DF_DETECT)):
+            self.df_detect_gcp = pd.read_csv(opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.DF_DETECT))
+            print("Added gcp detection raw results")
+        else:
+            self.df_detect_gcp = None
 
         self.result_folder = opj(self.project_path, 'Results')
 
@@ -151,58 +158,78 @@ class Photo4d(object):
             os.makedirs(opj(self.project_path, Photo4d.GCP_FOLDER))
 
         self.GCP_coords_file = opj(self.project_path, Photo4d.GCP_FOLDER, os.path.basename(GCP_coords_file))
-        copyfile(GCP_coords_file ,self.GCP_coords_file)
+        copyfile(GCP_coords_file, self.GCP_coords_file)
 
         success, error = utils.exec_mm3d('mm3d GCPConvert #F={} {}'.format(file_format, self.GCP_coords_file),
                                          display=display)
 
-
-        GCP_table = np.loadtxt(self.GCP_coords_file, dtype=str, delimiter=' ')
-
+        GCP_table = np.loadtxt(self.GCP_coords_file, dtype=str)
 
         try:
             GCP_name = GCP_table[:, file_format.split('_').index("N")]
-            np.savetxt(opj(self.project_path, "GCPs_name.txt"), GCP_name)
+            print(GCP_name)
+            np.savetxt(opj(self.project_path, Photo4d.GCP_FOLDER, "GCPs_name.txt"), GCP_name, fmt='%s',
+                       newline=os.linesep)
 
-        except:
-            print("ERROR prepare_GCP_files(): Check file format and file delimiter. Must be a single space delimiter")
+        except ValueError:  # todo add a coherent except
+            print("ERROR prepare_GCP_files(): Check file format and file delimiter. Delimiter is any space")
 
     # Prepare
 
     def pick_GCP(self):
-
-        os.chdir(opj(self.project_path, "GCP"))
+        gcp_path = opj(self.project_path, Photo4d.GCP_FOLDER)
+        os.chdir(gcp_path)
 
         # select the set of image on which to pick GCPs manually
         selected_line = self.sorted_pictures[self.selected_picture_set]
         file_set = "("
         for i in range(len(self.cam_folders)):
-            file_set += opj(self.cam_folders[i], selected_line[i + 1]) + "|"
+            file_set += selected_line[i + 1] + "|"
+            in_path = opj(self.cam_folders[i], selected_line[i + 1])
+            out_path = opj(gcp_path, selected_line[i + 1])
+            copyfile(in_path, out_path)
         file_set = file_set[:-1] + ")"
 
-        gcp_name_file = opj(self.project_path, "GCPs_name.txt")
-        utils.exec_mm3d("mm3d SaisieAppuisInitQt {} NONE {} {}.xml".format(file_set, gcp_name_file, self.GCP_xml))
+        gcp_name_file = "GCPs_name.txt"
+        print('mm3d SaisieAppuisInitQt "{}" NONE {} {}.xml'.format(file_set, gcp_name_file, self.GCP_xml))
+        utils.exec_mm3d('mm3d SaisieAppuisInitQt {} NONE {} {}.xml'.format(file_set, gcp_name_file, self.GCP_xml))
 
-        for folder in ['Tmp-SaisieAppuis', 'Tmp-MM-Dir']:
-            rmtree(folder)
-        os.remove(self.GCP_xml + '-S3D.xml')
-        os.chdir(self.project_path)
+        try:
+            for image in selected_line[1:]:
+                os.remove(opj(gcp_path, image))
+            for folder in ['Tmp-SaisieAppuis', 'Tmp-MM-Dir']:
+                rmtree(folder)
+            os.remove(self.GCP_xml + '-S3D.xml')
+            os.chdir(self.project_path)
+        except FileNotFoundError:
+            pass
+        except PermissionError:
+            print('WARNING Cannot delete temporary MicMac files due to permission error')
 
-    def detect_GCPs(self, kernel_size=(200, 200), display=True):
+    def detect_GCPs(self, kernel_size=(200, 200), display=True, save_df_gcp=True):
 
-        xml_file = opj(self.project_path, 'GCP', self.GCP_xml + '-S2D.xml')
+        xml_file = opj(self.project_path, Photo4d.GCP_FOLDER, self.GCP_xml + '-S2D.xml')
         self.df_detect_gcp = ds.detect_from_s2d_xml(xml_file, self.cam_folders,
                                                     self.sorted_pictures, kernel_size=kernel_size,
                                                     display_micmac=display)
+        if save_df_gcp:
+            print("  Saving result to .csv")
+            print(self.df_detect_gcp)
+            self.df_detect_gcp.to_csv(opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.DF_DETECT), sep=",")
 
     def extract_GCPs(self, magnitude_max=50, nb_values=5, max_dist=50, kernel_size=(200, 200), method="Median"):
+
+        if self.df_detect_gcp is None:
+            print("ERROR detect_GCPs() must have been run before trying to extract values")
+            exit(1)
 
         self.dict_image_gcp, self.df_gcp_abs = ds.extract_values(self.df_detect_gcp, magnitude_max=magnitude_max,
                                                                  nb_values=nb_values, max_dist=max_dist,
                                                                  kernel_size=kernel_size, method=method)
 
         # write xml file for the record. not necessary
-        XML_utils.write_S2D_xmlfile(self.dict_image_gcp, opj(self.project_path, 'GCP', 'GCPs_detect-S2D.xml'))
+        XML_utils.write_S2D_xmlfile(self.dict_image_gcp,
+                                    opj(self.project_path, Photo4d.GCP_FOLDER, 'GCPs_detect-S2D.xml'))
 
     def process(self, clahe=False, tileGridSize_clahe=8, resol=-1, distortion_model="Fraser", re_estimate=True,
                 master_folder=0,
@@ -251,9 +278,14 @@ if __name__ == "__main__":
     # myproj.check_picture()
     myproj.set_selected_set("DSC00857.JPG")
     print(myproj)
+
     # myproj.initial_orientation()
     # myproj.create_mask()
-    myproj.prepare_GCP_files("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/GCP/Pt_gps_gcp.app")
+    # myproj.prepare_GCP_files("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/GCP/Pt_gps_gcp.txt")
+    # myproj.pick_GCP()
+    myproj.detect_GCPs()
+    myproj.extract_GCPs()
+    print(myproj.dict_image_gcp)
     # Part 1, sort and flag good picture set
     # myproj.sort_picture()
     # myproj.check_picture()

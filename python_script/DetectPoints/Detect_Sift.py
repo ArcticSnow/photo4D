@@ -140,7 +140,7 @@ def detect_from_s2d_xml(s2d_xml_path, folder_list, pictures_array, samples_folde
                         print("  Tapioca executed with success, reading results")
                         # read output txt files
                         for picture_recap in os.listdir("Homol/Pastis" + image):
-                            if picture_recap.split(".")[-1] == ".txt":
+                            if picture_recap.split(".")[-1] == "txt":
                                 tie_points = rxml.get_tiepoints_from_txt("Homol/Pastis" + image + "/" + picture_recap)
                                 date = load_date(folder_list[i] + picture_recap[:-4])
 

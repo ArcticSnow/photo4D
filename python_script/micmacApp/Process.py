@@ -7,32 +7,30 @@ import XML_utils
 
 
 
-from image_utils import load_date, load_lum, blurr, lum
-
-from pictures_process import Handle_CLAHE as cl
+from Image_utils import load_date, load_lum, blurr, lum, process_clahe
 from Utils import exec_mm3d, pictures_array_from_file
 
 
-def sort_pictures(folder_path_list, output_path, ext="JPG", timeInterval=600):
+def sort_pictures(folder_path_list, output_path, ext="jpg", time_interval=600):
     """
     Regroup pictures from different folders if they are taken within timeInterval seconds of interval.
     Result is stored in an array/file,
-    :param folder_path_list:
-    :param output_path:
-    :param ext:
-    :param timeInterval: interval in seconds, with corresponds to |timeInterval1 - timeInterval2|
-    :return:
+    :param folder_path_list: list of the path to folders containing pictures, each folder is for one camera
+    :param output_path: path of the output .txt file containing picture sets
+    :param ext: extension of the pictures
+    :param time_interval: interval in seconds, with corresponds to the maximum time elapsed between the shooting of pics
+    :return: array with the sorted pictures. For each set a boolean is added, always True, but can be modified later
     """
-    print("Collecting files\n..........................................")
-    ext = ext.lower()
-    list = []  # containing an image_date_list for each folder
+    print("\n Collecting files\n..........................................")
+    # create a list containing image names and dates for each folder
+    list = []
     for folder_path in folder_path_list:
         image_date_list = []
         flist = os.listdir(folder_path)
         for filename in flist:
             try:
-                if filename.split(".")[-1] == ext:
-                    image_date_list.append((filename, load_date(folder_path + filename)))
+                if filename.split(".")[-1].lower() == ext.lower():
+                    image_date_list.append((filename, load_date(os.path.join(folder_path,filename))))
             except IndexError:
                 pass
         list.append(image_date_list)
@@ -44,9 +42,9 @@ def sort_pictures(folder_path_list, output_path, ext="JPG", timeInterval=600):
         return None
 
     sorted_pictures = []
-    print("Checking dates\n..........................................")
+    print(" Checking dates\n..........................................")
     with open(output_path, 'w') as f:
-        f.write("# Pictures taken within {} of interval\n".format(timeInterval))
+        f.write("# Pictures taken within {} of interval\n".format(time_interval))
 
     good, bad = 0, 0  # counters for correct and wrong sets
     # loop on the image of the first folder
@@ -64,7 +62,7 @@ def sort_pictures(folder_path_list, output_path, ext="JPG", timeInterval=600):
             while not found and i < len(folder):
                 date_var = folder[i][1]
                 diff = abs(date_ref - date_var)
-                if diff.days * 86400 + diff.seconds < timeInterval:  # if the two pictures are taken within 10 minutes
+                if diff.days * 86400 + diff.seconds < time_interval:  # if the two pictures are taken within 10 minutes
                     found = True
                     pic_group[j + 1] = folder[i][0]
                 i += 1
@@ -72,19 +70,19 @@ def sort_pictures(folder_path_list, output_path, ext="JPG", timeInterval=600):
         if None not in pic_group:
             good += 1
             pic_group[0] = True
-            print("Pictures found in every folder corresponding to the timeInterval of " + pic_group[1] + "\n")
+            print(" Pictures found in every folder corresponding to the timeInterval of " + pic_group[1] + "\n")
             sorted_pictures.append(pic_group)
             with open(output_path, 'a') as f:
                 f.write(str(pic_group[0]) + "," + ",".join(pic_group[1:]) + "\n")
         else:
             bad += 1
-            print("Missing picture(s) corresponding to the timeInterval of " + pic_group[1] + "\n")
+            print(" Missing picture(s) corresponding to the timeInterval of " + pic_group[1] + "\n")
 
-    end_str = "{} good set of pictures found, {} uncomplete sets, with a total of {} sets".format(good, bad, good + bad)
+    end_str = "# {} good set of pictures found, {} uncomplete sets, on a total of {} sets".format(good, bad, good + bad)
     print(end_str)
     with open(output_path, 'a') as f:
         f.write(end_str)
-    return sorted_pictures
+    return np.array(sorted_pictures)
 
 
 def check_pictures(folder_list, output_path, pictures_array, lum_inf, blur_inf):
@@ -101,7 +99,7 @@ def check_pictures(folder_list, output_path, pictures_array, lum_inf, blur_inf):
     :param blur_min:
     :return: same array, but some booleans will be set to False
     """
-    print("Checking pictures\n..........................................")
+    print("\n Checking pictures\n..........................................")
 
     with open(output_path, 'w') as f:
         f.write(
@@ -115,7 +113,7 @@ def check_pictures(folder_list, output_path, pictures_array, lum_inf, blur_inf):
             min_lum = 9999
             min_blur = 9999
             for j in range(1, J):
-                path = folder_list[j - 1] + pictures_array[i, j]
+                path = os.path.join(folder_list[j - 1],pictures_array[i, j])
                 lum = load_lum(path)
 
                 if lum < min_lum:
@@ -133,8 +131,9 @@ def check_pictures(folder_list, output_path, pictures_array, lum_inf, blur_inf):
     with open(output_path, 'a') as f:
         for line in pictures_array:
             f.write(str(line[0]) + "," + ",".join(line[1:]) + "\n")
-        f.write(
-            "# {} good set of pictures found, {} rejected sets, with a total of {} sets".format(good, bad, good + bad))
+        end_line = " {} good set of pictures found, {} rejected sets, on a total of {} sets".format(good, bad, good + bad)
+        f.write("#" + end_line)
+        print(end_line)
     return pictures_array
 
 
@@ -212,7 +211,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
             copyfile(filepath, folder_path + filename)
         else:
             # apply the CLAHE method, used for the orientation
-            cl.process_clahe(filepath,
+            process_clahe(filepath,
                 tileGridSize_clahe, out_path=folder_path + filename, grey=True)
 
         # copy mask corresponding to the picture
