@@ -182,7 +182,7 @@ def get_tiepoints_from_txt(path):
     with open(path) as f:
         for line in f.readlines():
             point_list.append(line.split(" "))
-    return np.array(point_list)
+    return np.array(point_list).astype(np.float)
 
 
 def write_S2D_xmlfile(dico_img_measures, file_name):
