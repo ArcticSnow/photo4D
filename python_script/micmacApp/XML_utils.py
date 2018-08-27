@@ -280,8 +280,8 @@ def change_Ori(initial_pictures, final_pictures, ori_folder_path):
     :param ori_folder_path: path of the orientation folder (name beginning with Ori- )
     """
     # some checks
-    if ori_folder_path[-1] != '/': ori_folder_path += "/"
-    if ori_folder_path.split('/')[-2][0:4] != "Ori-":
+    print( os.path.basename(ori_folder_path)[:4])
+    if os.path.basename(ori_folder_path)[:4] != "Ori-":
         print("Ori path is not valid : {}\nYou need to enter the path to the Ori-folder ".format(ori_folder_path))
         exit(1)
     elif len(initial_pictures) != len(final_pictures):
@@ -292,12 +292,12 @@ def change_Ori(initial_pictures, final_pictures, ori_folder_path):
     # change orientation files
     for j in range(nb_pictures):
         # rename Orientation files
-        if os.path.exists(ori_folder_path + 'Orientation-{}.xml'.format(initial_pictures[j])):
-            os.rename(ori_folder_path + 'Orientation-{}.xml'.format(initial_pictures[j]),
-                      ori_folder_path + 'Orientation-{}.xml'.format(final_pictures[j]))
+        if os.path.exists(os.path.join(ori_folder_path, 'Orientation-{}.xml'.format(initial_pictures[j]))):
+            os.rename(os.path.join(ori_folder_path, 'Orientation-{}.xml'.format(initial_pictures[j])),
+                      os.path.join(ori_folder_path, 'Orientation-{}.xml'.format(final_pictures[j])))
 
     # write a short summary
-    with open(ori_folder_path + "log.txt", 'w') as log:
+    with open(os.path.join(ori_folder_path,"log.txt"), 'w') as log:
         log.write("This orientation was not calculated by MicMac with these pictures\n\n")
         log.write("The names of pictures were just changed \n\n")
         for i in range(nb_pictures):

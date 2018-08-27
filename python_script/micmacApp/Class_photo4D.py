@@ -87,7 +87,7 @@ class Photo4d(object):
         # add GCP initial files
         # =========================================================================
         if os.path.exists(opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_COORD_FILE)):
-            self.gcp_coord_file = opj(self.project_path, Photo4d.GCP_COORD_FILE)
+            self.gcp_coord_file = opj(self.project_path,Photo4d.GCP_FOLDER, Photo4d.GCP_COORD_FILE)
             print("Added gcp coordinates file")
         else:
             self.gcp_coord_file = None
@@ -118,7 +118,7 @@ class Photo4d(object):
     def __str__(self):
         string = "\n=======================================================================\n" \
                  "Project Photo4d located at " + self.project_path + \
-                 "======================================================================="
+                 "\n======================================================================="
         string += "\n Contains {} camera folders : \n   {}".format(self.nb_folders, '\n   '.join(self.cam_folders))
         if self.sorted_pictures is None:
             string += "\n Pictures unsorted"
@@ -126,7 +126,21 @@ class Photo4d(object):
             string += "\n Pictures sorted in {} sets ".format(len(self.sorted_pictures))
             string += "\n The current selected set is {}".format(self.sorted_pictures[self.selected_picture_set][1:])
 
-        string += "=======================================================================\n"
+        string += "\n=======================================================================\n"
+        if self.in_ori is not None:
+            string += " Initial orientation computed"
+            string += "\n=======================================================================\n"
+
+        if self.masks is not None:
+            string += " Masks done "
+            string += "\n=======================================================================\n"
+
+        if self.gcp_coord_file is not None:
+            string += " Absolute coordinates of GCPs are given"
+            if self.dict_image_gcp is not None:
+                string += "\n GCPs image coordinates are computed "
+            string += "\n=======================================================================\n"
+
         return string
 
     def sort_picture(self, time_interval=600):
@@ -168,18 +182,23 @@ class Photo4d(object):
         # Execute mm3d command for orientation
         success, error = utils.exec_mm3d("mm3d Tapioca All {} {}".format(file_set, resolution), display=display)
         success, error = utils.exec_mm3d(
-            "mm3d Tapas {} {} Out={}".format(distortion_mode, file_set, Photo4d.ORI_FOLDER), display=display)
+            "mm3d Tapas {} {} Out={}".format(distortion_mode, file_set, Photo4d.ORI_FOLDER[4:]), display=display)
 
+        ori_path = opj(self.project_path, Photo4d.ORI_FOLDER)
         if success == 0:
             # copy orientation file
-            copytree(opj(tmp_path, Photo4d.ORI_FOLDER), opj(self.project_path, Photo4d.ORI_FOLDER))
-            self.in_ori = opj(self.project_path, Photo4d.ORI_FOLDER)
+            if os.path.exists(ori_path): rmtree(ori_path)
+            copytree(opj(tmp_path, Photo4d.ORI_FOLDER), ori_path)
+            self.in_ori = ori_path
         else:
             print("ERROR Orientation failed\nerror : " + str(error))
 
         os.chdir(self.project_path)
-        # todo je sais pas pk si micmac plante je peux pas supprimer le dossier, alors que ca marche sur un autre test
-        rmtree(tmp_path)
+        # todo thisraise a permission error despite this chdir I don't know why
+        try:
+            rmtree(tmp_path)
+        except PermissionError:
+            print('WARNING Cannot delete temporary folder due to permission error')
 
     def create_mask(self, del_pictures=True):
         # add mkdir, and change dir
@@ -196,7 +215,7 @@ class Photo4d(object):
                 os.remove(out_path)
         self.masks = mask_path
 
-    def prepare_GCP_files(self, gcp_coords_file, file_format='N_X_Y_Z', display=True):
+    def prepare_gcp_files(self, gcp_coords_file, file_format='N_X_Y_Z', display=True):
 
         if not os.path.exists(opj(self.project_path, Photo4d.GCP_FOLDER)):
             os.makedirs(opj(self.project_path, Photo4d.GCP_FOLDER))
@@ -222,7 +241,7 @@ class Photo4d(object):
             print("ERROR prepare_GCP_files(): Check file format and file delimiter. Delimiter is any space")
             exit(1)
 
-    def pick_GCP(self):
+    def pick_gcp(self):
         if self.gcp_coord_file is None or self.gcp_names is None:
             print("ERROR prepare_gcp_files must be applied first")
         gcp_path = opj(self.project_path, Photo4d.GCP_FOLDER)
@@ -238,10 +257,10 @@ class Photo4d(object):
             copyfile(in_path, out_path)
         file_set = file_set[:-1] + ")"
 
-        print('mm3d SaisieAppuisInitQt "{}" NONE {} {}.xml'.format(file_set, Photo4d.GCP_NAME_FILE,
+        print('mm3d SaisieAppuisInitQt "{}" NONE {} {}'.format(file_set, Photo4d.GCP_NAME_FILE,
                                                                    Photo4d.GCP_PICK_FILE))
         utils.exec_mm3d(
-            'mm3d SaisieAppuisInitQt {} NONE {} {}.xml'.format(file_set, Photo4d.GCP_NAME_FILE, Photo4d.GCP_PICK_FILE))
+            'mm3d SaisieAppuisInitQt {} NONE {} {}'.format(file_set, Photo4d.GCP_NAME_FILE, Photo4d.GCP_PICK_FILE))
 
         try:
             for image in selected_line[1:]:
@@ -275,9 +294,9 @@ class Photo4d(object):
                                                                  nb_values=nb_values, max_dist=max_dist,
                                                                  kernel_size=kernel_size, method=method)
 
-        # write xml file for the record. not necessary
+        # write xml file for the record
         XML_utils.write_S2D_xmlfile(self.dict_image_gcp,
-                                    opj(self.project_path, Photo4d.GCP_FOLDER, ))
+                                    opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_DETECT_FILE ))
 
     def process(self, master_folder=0, shift=None, clahe=False, tileGridSize_clahe=8, resol=-1,
                 distortion_model="Fraser",
@@ -286,12 +305,13 @@ class Photo4d(object):
         if self.sorted_pictures is None:
             print("ERROR You must apply sort_pictures() before doing anything else")
             exit(1)
+        print(self.in_ori, "LAAAAA")
 
-        proc.process_from_array(self.cam_folders, self.sorted_pictures, self.result_folder,
+        proc.process_from_array(self.cam_folders, self.sorted_pictures, opj(self.project_path, Photo4d.RESULT_FOLDER),
                                 inori=self.in_ori,
-                                gcp=self.GCP_coords_file, gcp_S2D=self.dict_image_gcp, clahe=clahe,
+                                gcp=self.gcp_coord_file, gcp_S2D=self.dict_image_gcp, clahe=clahe,
                                 tileGridSize_clahe=tileGridSize_clahe, resol=resol, distortion_model=distortion_model,
-                                re_estimate=re_estimate, master_folder=master_folder, masq2D=None, DefCor=DefCor,
+                                re_estimate=re_estimate, master_folder=master_folder, masq2D=self.masks, DefCor=DefCor,
                                 shift=shift, delete_temp=delete_temp,
                                 display_micmac=display, cond=self.cond)
 
@@ -329,15 +349,14 @@ if __name__ == "__main__":
     # myproj.sort_picture()
     # myproj.check_picture()
     myproj.set_selected_set("DSC00857.JPG")
-    print(myproj)
 
-    myproj.initial_orientation()
-    # myproj.create_mask()
-    # myproj.prepare_GCP_files("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/GCP/Pt_gps_gcp.txt")
-    # myproj.pick_GCP()
-    # myproj.detect_GCPs()
-    # myproj.extract_GCPs()
-    # myproj.process()
+    #myproj.initial_orientation()
+    #myproj.create_mask()
+    #myproj.prepare_gcp_files("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/GCP/Pt_gps_gcp.txt")
+    #myproj.pick_gcp()
+    #myproj.detect_GCPs()
+    #myproj.extract_GCPs()
+    myproj.process(resol=4000)
     # Part 1, sort and flag good picture set
     # myproj.sort_picture()
     # myproj.check_picture()

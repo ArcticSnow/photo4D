@@ -185,9 +185,9 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
     date = load_date(filepath_list[0])
     if date is not None:
         date_str = date.strftime("%Y_%m_%d-%H_%M")
-        folder_path = output_folder + tmp_folder_name + "_" + date_str + "/"
+        folder_path = os.path.join (output_folder,tmp_folder_name + "_" + date_str)
     else:
-        folder_path = output_folder + tmp_folder_name + filepath_list[0].split('/')[-1]
+        folder_path = os.path.join(output_folder,tmp_folder_name + filepath_list[0].split('/')[-1])
         date_str = filepath_list[0].split('/')[-1]  # if we can't find a date, put the name of the first picture...
     if not os.path.exists(folder_path): os.mkdir(folder_path)
 
@@ -204,24 +204,25 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
     for i in range(len(filepath_list)):
 
         filepath = filepath_list[i]
-        filename = filepath.split("/")[-1]
+        filename = os.path.basename(filepath)
         pictures_pattern += filename + "|"
 
         if not clahe:
-            copyfile(filepath, folder_path + filename)
+            copyfile(filepath, os.path.join(folder_path, filename))
+
         else:
             # apply the CLAHE method, used for the orientation
             process_clahe(filepath,
-                tileGridSize_clahe, out_path=folder_path + filename, grey=True)
+                tileGridSize_clahe, out_path=os.path.join(folder_path, filename), grey=True)
 
         # copy mask corresponding to the picture
         if masqpath_list is not None:
             # copy the mask and gave it the default name of a mask created by MicMac
-            copyfile(masqpath_list[i], folder_path + '.'.join(filename.split('.')[:-1]) + "_Masq.tif")
+            copyfile(masqpath_list[i], os.path.join(folder_path, '.'.join(filename.split('.')[:-1]) + "_Masq.tif"))
             # MicMac needs a xml file with the tiff file, if it doesn't exist, it is created
             if os.path.exists('.'.join(masqpath_list[i].split('.')[:-1]) + '.xml'):
                 copyfile('.'.join(masqpath_list[i].split('.')[:-1]) + '.xml',
-                         folder_path + '.'.join(filename.split('.')[:-1]) + "_Masq.xml")
+                         os.path.join(folder_path, '.'.join(filename.split('.')[:-1]) + "_Masq.xml"))
             else:
                 XML_utils.write_masq_xml(masqpath_list[i], folder_path + '.'.join(filename.split('.')[:-1]) + "_Masq.xml")
 
@@ -233,6 +234,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
     # detection of Tie points
     # ===================================================
     os.chdir(folder_path)
+    print(folder_path)
     # first detection of Tie points with the option ExpTxt=1 to make a report with txt
     command = 'mm3d Tapioca All {} {} ExpTxt=1'.format(pictures_pattern, resol)
     print("\033[0;33" + command + "\033[0m")
@@ -253,27 +255,31 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
 
     ori = distortion_model  # name of orientation, it is the distortion model by default
     # if there is an initial orientation
+    print("ICIIII", inori)
     if inori is not None:
 
-        if inori[-1] != "/": inori += "/"
+        print(os.path.basename(inori))
         # copy the initial orientation file
-        new_Ori_path = folder_path + inori.split('/')[-2] + "/"
+        new_Ori_path = os.path.join(folder_path, os.path.basename(inori))
+        print("OIRIIIII", new_Ori_path)
         if not os.path.exists(new_Ori_path):
+            print("COPYTREE",inori,new_Ori_path)
             copytree(inori, new_Ori_path)  # We assume that the path is correctly written ( "/Root/folder/Ori-Truc/")
         # swap pictures names to mock MicMac computed orientation files
+        print(pictures_ini)
+        print(final_pictures)
         XML_utils.change_Ori(pictures_ini, final_pictures, new_Ori_path)
 
         # if re_estimate, MicMac recompute the orientation
         if re_estimate:
             ori += "_R"
-            command = 'mm3d Tapas {} {} inori={} Out={}'.format(distortion_model, pictures_pattern,
-                                                                inori.split('/')[-2], ori)
+            command = 'mm3d Tapas {} {} InOri={} Out={}'.format(distortion_model, pictures_pattern,
+                                                                os.path.basename(inori), ori)
             print("\033[0;33" + command + "\033[0m")
             success, error = exec_mm3d(command, display_micmac)
         else:
-            ori = inori.split('/')[-2]  # name of the new ori is the same as the initial one
+            ori = os.path.basename(inori)  # name of the new ori is the same as the initial one
             succes, error = 0, None
-
     # if there is no initial orientation but an initial calibration
     # it assumed that the calibration is the same for every picture
     elif incal is not None:
@@ -281,7 +287,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
         new_Cal_path = folder_path + incal.split('/')[-2] + "/"
         if not os.path.exists(new_Cal_path):
             copytree(incal, new_Cal_path)  # We assume that the path is correctly written ( "/fgg/Ori-Truc/")
-        command = 'mm3d Tapas {} {} incal={}'.format(distortion_model, pictures_pattern,
+        command = 'mm3d Tapas {} {} InCal={}'.format(distortion_model, pictures_pattern,
                                                      incal.split('/')[-2])
         print("\033[0;33" + command + "\033[0m")
         success, error = exec_mm3d(command, display_micmac)
@@ -295,11 +301,11 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
     # if GCP are provided for Bascule (Absolute orientation)
     if abs_coord_gcp is not None and img_coord_gcp is not None:
         # copy GCP absolute coordinates
-        gcp_name = abs_coord_gcp.split('/')[-1]
-        if abs_coord_gcp != folder_path + gcp_name:
-            copyfile(abs_coord_gcp, folder_path + gcp_name)
+        gcp_name = os.path.basename(abs_coord_gcp)
+        if abs_coord_gcp != os.path.join(folder_path, gcp_name):
+            copyfile(abs_coord_gcp, os.path.join(folder_path, gcp_name))
         # create S2D xml file with images positions of gcp
-        XML_utils.write_S2D_xmlfile(img_coord_gcp, folder_path + "GCP-S2D.xml")
+        XML_utils.write_S2D_xmlfile(img_coord_gcp,os.path.join(folder_path, "GCP-S2D.xml"))
 
         command = 'mm3d GCPBascule {} {} Bascule_ini {} {}'.format(pictures_pattern,
                                                                    ori,
@@ -319,8 +325,8 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
         # clahe images were used for orientation, but we need JPG for dense correlation
         for i in range(len(filepath_list)):
             filepath = filepath_list[i]
-            filename = filepath.split("/")[-1]
-            copyfile(filepath, folder_path + filename)
+            filename = os.path.basename(filepath)
+            copyfile(filepath, os.path.join(folder_path, filename))
 
     ply_name += date_str + ".ply"
     command = 'mm3d Malt GeomImage {} {} Master={} DefCor={} MasqIm=Masq'.format(pictures_pattern, ori,
@@ -378,7 +384,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
                 recap.write(
                     "{} : {}       {}       {}\n".format(i, "%.4f" % float(dict[i][0]), "%.4f" % float(dict[i][1]),
                                                          dict[i][2]))
-    copyfile(folder_path + date_str + '_recap.txt', output_folder + date_str + '_recap.txt')
+    copyfile(os.path.join(folder_path, date_str + '_recap.txt'), os.path.join(output_folder, date_str + '_recap.txt'))
 
     # try to delete temporary folder
     if delete_temp:
@@ -480,14 +486,23 @@ def process_from_array(folders_list, pictures_array, output_folder, incal=None, 
         pictures_ini = pictures_array[i - 1, 1:]
 
     if gcp is not None and gcp_S2D is not None:
-        if gcp[-4:] != ".xml":
-            print("WARNING Param gcp must be an xml file from the micmac function GCPConvert")
+        if type(gcp_S2D) == str:
+            if gcp[-4:] != ".xml" or not os.path.exists(gcp_S2D):
+                print("WARNING Param gcp must be an xml file from the micmac function GCPConvert")
+                exit(1)
+            else:
+                # retrieve gcp measures for all image in a dictionary
+                all_gcp = XML_utils.read_S2D_xmlfile(gcp_S2D)
+        elif type(gcp_S2D) == dict:
+            # retrieve gcp measures for all image in a dictionary
+            all_gcp = gcp_S2D
+        else:
+            print('ERROR Param gcp_s2d must be either path to the xml or a dictionary')
             exit(1)
         if not os.path.exists(gcp):
             print("WARNING Cannot open gcp file at " + gcp)
             exit(1)
-        # retrieve gcp measures for all image in a dictionary
-        all_gcp = XML_utils.read_S2D_xmlfile(gcp_S2D)
+
     else:
         all_gcp = None
 
@@ -505,11 +520,10 @@ def process_from_array(folders_list, pictures_array, output_folder, incal=None, 
                     while j < J and not found:
 
                         if pictures_array[i, j].lower() == file[:-9].lower() + '.' + ext:
-                            masqpath_list[j - 1] = masq2D + file
+                            masqpath_list[j - 1] = os.path.join(masq2D, file)
                             found = True
                         j += 1
                     i += 1
-        print(masqpath_list)
         if '' in masqpath_list:
             print("Cannot find pictures corresponding to mask in pictures array")
             exit(1)
