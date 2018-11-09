@@ -25,7 +25,13 @@ The project should be based on open-source libraries, for public release.
      - matplotlib
      - lxml
      - pillow
-     - pyxif (that needs to be downloaded from https://github.com/zenwerk/Pyxif )
+     - pyxif (that needs to be downloaded from https://github.com/zenwerk/Pyxif)
+     ```sh
+     wget https://github.com/zenwerk/Pyxif/archive/master.zip
+     unzip Pyxif-master.zip
+     cd Pyxif-master
+     python setup.py install
+     ```
  3. clone the github repository where you want on your system
      git clone ....
 
@@ -39,6 +45,97 @@ The project should be based on open-source libraries, for public release.
  6. Success??!
 
 ## Use
+
+1. prepare your environment: 
+      - create a Python 3.6 virtual environment in which you install the required libraries (see above)
+      - Organize your photo with one folder per camera. For instance fodler /cam1 constains all the im ages of Camera 1.
+      - create a folder for the project with inside the project folder a folder called Images containing itself one folder per camera
+```bash
+├── Project
+    └── Images
+         ├── Cam1
+         ├── Cam2
+         ├── Cam3
+         └── Cam...
+```
+
+
+2. Set the path correctly in the file MicmacApp/Class_photo4D.py
+
+```python
+
+############################################################
+## Part 1
+
+# Set Project path
+myproj = Photo4d(project_path="point to project folder /Project")
+
+# Algorithm to sort images in triplets
+myproj.sort_picture()
+
+# Algorithm to check picture quality (exposure and blurriness)
+myproj.check_picture()
+
+############################################################
+## Part 2: Manual preparation for MicMac
+
+# Provide the name of one image to set the triplet of reference
+myproj.set_selected_set("DSC00857.JPG")
+# myproj.selected_picture_set = -1  # by default get the last set of image. Change to the correct index where there are good quality images
+
+# command telling Micmac to compute camera orientation for the reference set
+myproj.initial_orientation()
+
+# Open MicMac user interface to define mask of the region of interest (ROI). Select a polygon for the ROI, and exit the window. This needs to be done for each camera.
+myproj.create_mask()
+
+############################################################
+## Part 3: Derive GCPS in image stack
+
+# Point the app to the text file with the GPS locations of the GCPs in format (name, East, North, Elec)
+myproj.prepare_gcp_files("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/GCP/Pt_gps_gcp.txt")
+
+# Pick GCPs manually with Micmac user interface on the reference set for each camera
+myproj.pick_gcp()
+
+
+
+
+#=========================================================== Continue help from here
+#myproj.detect_GCPs()
+#myproj.extract_GCPs()
+myproj.process(resol=4000)
+# Part 1, sort and flag good picture set
+# myproj.sort_picture()
+# myproj.check_picture()
+
+# Part 2: Manual
+# choose either:
+# 		- Calibration, calibration of camera (TODO)
+# 		- Orientation, estimate camera position
+
+# myproj.selected_picture_set = -1  # by default get the last set of image. Change to the correct index where there are good quality images
+# myproj.oriententation_intitial()
+
+# myproj.selected_picture_set = -1
+# myproj.create_mask()
+
+# Part 3: Derive GCPS in image stack
+
+# myproj.prepare_GCP_files("GCPs.txt")  # format the text file to
+
+# myproj.selected_picture_set = -1
+# myproj.pick_GCP()
+
+# myproj.detect_GCPs()
+
+# point GCP (manual)
+# estimate on stack
+
+# Part 4: Process images to point cloud
+# myproj.process()
+```
+
 
 [Insert here example on how to use the package]
 
