@@ -24,6 +24,8 @@ The project should be based on open-source libraries, for public release.
      - pandas 
      - matplotlib
      - lxml
+     - pillow
+     - pyxif (that needs to be downloaded from https://github.com/zenwerk/Pyxif )
  3. clone the github repository where you want on your system
      git clone ....
 
