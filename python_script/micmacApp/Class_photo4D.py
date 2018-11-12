@@ -443,7 +443,7 @@ if __name__ == "__main__":
 
     #myproj.initial_orientation()
     #myproj.create_mask()
-    #myproj.prepare_gcp_files(r"I:\icemass-users\lucg\Finse\Photo4D\2018-first_last\GCPs_coordinates_manual.txt",file_format="N_Y_X_Z")
+    #myproj.prepare_gcp_files(r"I:\icemass-users\lucg\Finse\Photo4D\2018-first_last\GCPs_coordinates_manual.txt",file_format="N_X_Y_Z")
     #myproj.pick_gcp_ini()
     #myproj.pick_gcp_basc()
     #myproj.pick_gcp_final()
