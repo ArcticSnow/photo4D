@@ -6,6 +6,8 @@ Program XXX Part I
 '''
 
 # import all function
+import sys
+sys.path.append('C:\Libraries\Pyxif-master')
 
 # import public library
 import os
@@ -34,6 +36,12 @@ class Photo4d(object):
     GCP_COORD_FILE = 'GCPs_coordinates.xml'
     DF_DETECT_FILE = 'df_detect.csv'
     SET_FILE = 'set_definition.txt'
+    GCP_PRECISION=0.05 # GCP precision in m
+    GCP_POINTING_PRECISION=5 # Pointing precision of GCPs in images (pixels)
+    GCP_PICK_FILE_INI = 'GCPs_pick_Ini.xml'
+    GCP_PICK_FILE_INI_2D = 'GCPs_pick_Ini-S2D.xml'
+    GCP_PICK_FILE_BASC = 'GCPs_pick_Basc.xml'
+    GCP_PICK_FILE_BASC_2D = 'GCPs_pick_Basc-S2D.xml'
     GCP_PICK_FILE = 'GCPs_pick.xml'
     GCP_DETECT_FILE = 'GCPs_detect-S2D.xml'
     GCP_NAME_FILE = 'GCPs_names.txt'
@@ -241,12 +249,13 @@ class Photo4d(object):
             print("ERROR prepare_GCP_files(): Check file format and file delimiter. Delimiter is any space")
             exit(1)
 
-    def pick_gcp(self):
+    def pick_gcp_ini(self):
         if self.gcp_coord_file is None or self.gcp_names is None:
             print("ERROR prepare_gcp_files must be applied first")
         gcp_path = opj(self.project_path, Photo4d.GCP_FOLDER)
         os.chdir(gcp_path)
-
+        print(gcp_path)
+        copytree(opj(self.project_path, Photo4d.ORI_FOLDER), opj(gcp_path, 'Ori-Ini'))
         # select the set of image on which to pick GCPs manually
         selected_line = self.sorted_pictures[self.selected_picture_set]
         file_set = "("
@@ -257,17 +266,100 @@ class Photo4d(object):
             copyfile(in_path, out_path)
         file_set = file_set[:-1] + ")"
 
-        print('mm3d SaisieAppuisInitQt "{}" NONE {} {}'.format(file_set, Photo4d.GCP_NAME_FILE,
-                                                                   Photo4d.GCP_PICK_FILE))
+        print('mm3d SaisieAppuisInitQt "{}" Ori-Ini {} {}'.format(file_set, self.GCP_NAME_FILE,
+                                                                   self.GCP_PICK_FILE_INI))
         utils.exec_mm3d(
-            'mm3d SaisieAppuisInitQt {} NONE {} {}'.format(file_set, Photo4d.GCP_NAME_FILE, Photo4d.GCP_PICK_FILE))
+            'mm3d SaisieAppuisInitQt {} Ori-Ini {} {}'.format(file_set, self.GCP_NAME_FILE, self.GCP_PICK_FILE_INI))
+
+        command = 'mm3d GCPBascule {} Ori-Ini Bascule-ini {} {}'.format(file_set,
+                                                                   self.GCP_COORD_FILE,
+                                                                   self.GCP_PICK_FILE_INI_2D)
+        print(command)
+        utils.exec_mm3d(command)
+        
+        try:
+            for image in selected_line[1:]:
+                os.remove(opj(gcp_path, image))
+            for folder in ['Ori-Ini']:
+                rmtree(folder)
+            #os.remove(Photo4d.GCP_PICK_FILE[:-4] + '-S3D.xml')
+            os.chdir(self.project_path)
+        except FileNotFoundError:
+            pass
+        except PermissionError:
+            print('WARNING Cannot delete temporary MicMac files due to permission error')
+
+    def pick_gcp_basc(self, resolution=5000):
+        if self.gcp_coord_file is None or self.gcp_names is None:
+            print("ERROR prepare_gcp_files must be applied first")
+        gcp_path = opj(self.project_path, Photo4d.GCP_FOLDER)
+        os.chdir(gcp_path)
+        print(gcp_path)
+        # select the set of image on which to pick GCPs manually
+        selected_line = self.sorted_pictures[self.selected_picture_set]
+        file_set = "("
+        for i in range(len(self.cam_folders)):
+            file_set += selected_line[i + 1] + "|"
+            in_path = opj(self.cam_folders[i], selected_line[i + 1])
+            out_path = opj(gcp_path, selected_line[i + 1])
+            copyfile(in_path, out_path)
+        file_set = file_set[:-1] + ")"
+
+        command='mm3d SaisieAppuisPredicQt "{}" Ori-Bascule-ini {} {}'.format(file_set,
+                                                                   self.GCP_COORD_FILE,
+                                                                   self.GCP_PICK_FILE_BASC)
+        print(command)        
+        utils.exec_mm3d(command)
+
+
+        command="mm3d Tapioca All {} {}".format(file_set, resolution)
+        print(command)        
+        utils.exec_mm3d(command)
+        
+        command = 'mm3d Campari {} Bascule-ini Bascule GCP=[{},{},{},{}] AllFree=1'.format(file_set, self.GCP_COORD_FILE, self.GCP_PRECISION, self.GCP_PICK_FILE_BASC_2D, self.GCP_POINTING_PRECISION)
+        print(command)
+        utils.exec_mm3d(command)
+        
+        try:
+            for image in selected_line[1:]:
+                os.remove(opj(gcp_path, image))
+            for folder in ['Ori-Bascule_ini']:
+                rmtree(folder)
+            #os.remove(Photo4d.GCP_PICK_FILE[:-4] + '-S3D.xml')
+            os.chdir(self.project_path)
+        except FileNotFoundError:
+            pass
+        except PermissionError:
+            print('WARNING Cannot delete temporary MicMac files due to permission error')
+
+    def pick_gcp_final(self):
+        if self.gcp_coord_file is None or self.gcp_names is None:
+            print("ERROR prepare_gcp_files must be applied first")
+        gcp_path = opj(self.project_path, Photo4d.GCP_FOLDER)
+        os.chdir(gcp_path)
+        print(gcp_path)
+        # select the set of image on which to pick GCPs manually
+        selected_line = self.sorted_pictures[self.selected_picture_set]
+        file_set = "("
+        for i in range(len(self.cam_folders)):
+            file_set += selected_line[i + 1] + "|"
+            in_path = opj(self.cam_folders[i], selected_line[i + 1])
+            out_path = opj(gcp_path, selected_line[i + 1])
+            copyfile(in_path, out_path)
+        file_set = file_set[:-1] + ")"
+
+        command='mm3d SaisieAppuisPredicQt "{}" Ori-Bascule {} {}'.format(file_set,
+                                                                   self.GCP_COORD_FILE,
+                                                                   self.GCP_PICK_FILE)
+        print(command)        
+        utils.exec_mm3d(command)
 
         try:
             for image in selected_line[1:]:
                 os.remove(opj(gcp_path, image))
-            for folder in ['Tmp-SaisieAppuis', 'Tmp-MM-Dir']:
+            for folder in ['Tmp-SaisieAppuis', 'Tmp-MM-Dir','Ori-Bascule','Homol']:
                 rmtree(folder)
-            os.remove(Photo4d.GCP_PICK_FILE[:-4] + '-S3D.xml')
+            #os.remove(Photo4d.GCP_PICK_FILE[:-4] + '-S3D.xml')
             os.chdir(self.project_path)
         except FileNotFoundError:
             pass
@@ -313,7 +405,7 @@ class Photo4d(object):
                                 tileGridSize_clahe=tileGridSize_clahe, resol=resol, distortion_model=distortion_model,
                                 re_estimate=re_estimate, master_folder=master_folder, masq2D=self.masks, DefCor=DefCor,
                                 shift=shift, delete_temp=delete_temp,
-                                display_micmac=display, cond=self.cond)
+                                display_micmac=display, cond=self.cond, GNSS_PRECISION=self.GCP_PRECISION, GCP_POINTING_PRECISION=self.GCP_POINTING_PRECISION)
 
     def set_selected_set(self, img_or_index: Union[int, str]):
         if self.sorted_pictures is None:
@@ -345,18 +437,20 @@ class Photo4d(object):
 
 
 if __name__ == "__main__":
-    myproj = Photo4d(project_path="C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/Mini_projet")
-    # myproj.sort_picture()
-    # myproj.check_picture()
-    myproj.set_selected_set("DSC00857.JPG")
+    myproj = Photo4d(project_path=r"C:\Users\lucg\Documents\Finse\2018-midseason")
+   # myproj.sort_picture()
+    #myproj.check_picture()
+    #myproj.set_selected_set("DSC03493.JPG")
 
     #myproj.initial_orientation()
     #myproj.create_mask()
-    #myproj.prepare_gcp_files("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/GCP/Pt_gps_gcp.txt")
-    #myproj.pick_gcp()
+    #myproj.prepare_gcp_files(r"I:\icemass-users\lucg\Finse\Photo4D\2018-first_last\GCPs_coordinates_manual.txt",file_format="N_X_Y_Z")
+    #myproj.pick_gcp_ini()
+    #myproj.pick_gcp_basc()
+    #myproj.pick_gcp_final()
     #myproj.detect_GCPs()
     #myproj.extract_GCPs()
-    myproj.process(resol=4000)
+    #myproj.process(resol=4000)
     # Part 1, sort and flag good picture set
     # myproj.sort_picture()
     # myproj.check_picture()
