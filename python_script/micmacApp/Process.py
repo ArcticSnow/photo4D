@@ -314,7 +314,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
         print(command)
         exec_mm3d(command, display_micmac)
 
-        command = 'mm3d Campari {} Bascule_ini Bascule'.format(pictures_pattern)
+        command = 'mm3d Campari {} Bascule_ini Bascule GCP=[{},0.2,{},1] AllFree=1'.format(pictures_pattern, gcp_name,"GCP-S2D.xml")
         success, error = exec_mm3d(command, display_micmac)
 
         ori = 'Bascule'

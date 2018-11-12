@@ -7,7 +7,7 @@ To keep metadata when we transform the picture, we use the module pyxif (MIT Lic
 
 
 from datetime import datetime
-import sys, pyxif, time, os, pyxif
+import sys, pyxif, time, os
 import cv2 as cv
 import numpy as np
 
