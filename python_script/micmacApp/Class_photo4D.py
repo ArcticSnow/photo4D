@@ -37,6 +37,7 @@ class Photo4d(object):
     DF_DETECT_FILE = 'df_detect.csv'
     SET_FILE = 'set_definition.txt'
     GCP_PRECISION=0.05 # GCP precision in m
+    GCP_POINTING_PRECISION=5 # Pointing precision of GCPs in images (pixels)
     GCP_PICK_FILE_INI = 'GCPs_pick_Ini.xml'
     GCP_PICK_FILE_INI_2D = 'GCPs_pick_Ini-S2D.xml'
     GCP_PICK_FILE_BASC = 'GCPs_pick_Basc.xml'
@@ -315,7 +316,7 @@ class Photo4d(object):
         print(command)        
         utils.exec_mm3d(command)
         
-        command = 'mm3d Campari {} Bascule-ini Bascule GCP=[{},{},{},2] AllFree=1'.format(file_set, self.GCP_COORD_FILE, self.GCP_PRECISION, self.GCP_PICK_FILE_BASC_2D)
+        command = 'mm3d Campari {} Bascule-ini Bascule GCP=[{},{},{},{}] AllFree=1'.format(file_set, self.GCP_COORD_FILE, self.GCP_PRECISION, self.GCP_PICK_FILE_BASC_2D, self.GCP_POINTING_PRECISION)
         print(command)
         utils.exec_mm3d(command)
         
@@ -404,7 +405,7 @@ class Photo4d(object):
                                 tileGridSize_clahe=tileGridSize_clahe, resol=resol, distortion_model=distortion_model,
                                 re_estimate=re_estimate, master_folder=master_folder, masq2D=self.masks, DefCor=DefCor,
                                 shift=shift, delete_temp=delete_temp,
-                                display_micmac=display, cond=self.cond)
+                                display_micmac=display, cond=self.cond, GNSS_PRECISION=self.GCP_PRECISION, GCP_POINTING_PRECISION=self.GCP_POINTING_PRECISION)
 
     def set_selected_set(self, img_or_index: Union[int, str]):
         if self.sorted_pictures is None:
@@ -436,7 +437,7 @@ class Photo4d(object):
 
 
 if __name__ == "__main__":
-    myproj = Photo4d(project_path=r"I:\icemass-users\lucg\Finse\Photo4D\2018-first_last")
+    myproj = Photo4d(project_path=r"C:\Users\lucg\Documents\Finse\2018-midseason")
    # myproj.sort_picture()
     #myproj.check_picture()
     #myproj.set_selected_set("DSC03493.JPG")

@@ -141,7 +141,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
     distortion_model="RadialStd", incal=None, inori=None, abs_coord_gcp=None,
     img_coord_gcp=None, pictures_ini=None, re_estimate=False,
     master_img=None, masqpath_list=None, DefCor=0.0, shift=None, delete_temp=True,
-    display_micmac=True):
+    display_micmac=True, GNSS_PRECISION=0.2, GCP_POINTING_PRECISION=5):
     """
     copy needed files and process micmac for a set of given pictures (filepath_list)
     It is advised to give only absolute path in parameters
@@ -279,7 +279,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
             success, error = exec_mm3d(command, display_micmac)
         else:
             ori = os.path.basename(inori)  # name of the new ori is the same as the initial one
-            succes, error = 0, None
+            success, error = 0, None
     # if there is no initial orientation but an initial calibration
     # it assumed that the calibration is the same for every picture
     elif incal is not None:
@@ -313,8 +313,8 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
                                                                    "GCP-S2D.xml")
         print(command)
         exec_mm3d(command, display_micmac)
-
-        command = 'mm3d Campari {} Bascule_ini Bascule GCP=[{},0.2,{},1] AllFree=1'.format(pictures_pattern, gcp_name,"GCP-S2D.xml")
+        
+        command = 'mm3d Campari {} Bascule_ini Bascule GCP=[{},{},{},{}] AllFree=1'.format(pictures_pattern, gcp_name,GNSS_PRECISION,"GCP-S2D.xml",GCP_POINTING_PRECISION)
         success, error = exec_mm3d(command, display_micmac)
 
         ori = 'Bascule'
@@ -409,7 +409,7 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
 def process_from_array(folders_list, pictures_array, output_folder, incal=None, inori=None,
     pictures_ini=None, gcp=None, gcp_S2D=None, clahe=False, tileGridSize_clahe=8, resol=-1,distortion_model="Fraser",
     re_estimate=False, master_folder=0, masq2D=None, DefCor=0.0, shift=None, delete_temp=True,
-    display_micmac=True, cond=None):
+    display_micmac=True, cond=None, GNSS_PRECISION=0.2, GCP_POINTING_PRECISION=5):
     """
     Do the 3D reconstruction of pictures using MicMac
 
@@ -564,7 +564,9 @@ def process_from_array(folders_list, pictures_array, output_folder, incal=None, 
                     img_coord_gcp=set_gcp, re_estimate=re_estimate,
                     master_img=master_img, masqpath_list=masqpath_list,
                     resol=resol, distortion_model=distortion_model,
-                    DefCor=DefCor, clahe=clahe, tileGridSize_clahe=tileGridSize_clahe, shift=shift, delete_temp=delete_temp, display_micmac=display_micmac)
+                    DefCor=DefCor, clahe=clahe, tileGridSize_clahe=tileGridSize_clahe,
+                    shift=shift, delete_temp=delete_temp, display_micmac=display_micmac,
+                    GNSS_PRECISION=GNSS_PRECISION, GCP_POINTING_PRECISION=GCP_POINTING_PRECISION)
 
 
 if __name__ == "__main__":
@@ -592,7 +594,7 @@ if __name__ == "__main__":
                        output_folder=output_folder, resol=2000, master_folder=2,
                        masq2D=masq2D, DefCor=0.4, inori=inori, re_estimate=True,
                        clahe=True, delete_temp=False, gcp_S2D=S2D, gcp=truc,
-                       distortion_model="Fraser", display_micmac=True)
+                       distortion_model="Fraser", display_micmac=True, GNSS_PRECISION=0.2, GCP_POINTING_PRECISION=5)
     # [410000, 6710000, 0]
     toc = time.time()
     temps = abs(toc - tic)
