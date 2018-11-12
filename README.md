@@ -24,7 +24,23 @@ The project should be based on open-source libraries, for public release.
      - pandas 
      - matplotlib
      - lxml
- 3. clone the github repository where you want on your system
+
+```shell
+conda create --name photo4d
+source activate photo4d
+conda install pandas matplotlib opencv ipython lxml
+
+# if install pyntcloud
+conda install numba scipy
+pip install git+https://github.com/daavoo/pyntcloud
+
+# if opening .las file is needed
+pip install laspy
+```
+
+
+
+ 1. clone the github repository where you want on your system
      git clone ....
 
 ## Objectives
