@@ -359,8 +359,8 @@ def copy_and_process(filepath_list, output_folder, tmp_folder_name="TMP_MicMac",
             string += "  - {} taken on {} : {} tie points\n".format(i, load_date(folder_path + i), df.loc())
         recap.write(string)
 
-        if os.path.exists(folder_path + ply_name):
-            copyfile(folder_path + ply_name, output_folder + ply_name)
+        if os.path.exists(os.path.join(folder_path,ply_name)):
+            copyfile(os.path.join(folder_path,ply_name), os.path.join(output_folder,ply_name))
             recap.write("\nStatus  : Success\n")
         else:
             recap.write("\nStatus  : Failure\n")
