@@ -7,6 +7,7 @@ Program XXX Part I
 
 # import all function
 import sys
+sys.path.append('C:\Git\photo4D\python_script\micmacApp')
 sys.path.append('C:\Libraries\Pyxif-master')
 
 # import public library
@@ -36,8 +37,8 @@ class Photo4d(object):
     GCP_COORD_FILE = 'GCPs_coordinates.xml'
     DF_DETECT_FILE = 'df_detect.csv'
     SET_FILE = 'set_definition.txt'
-    GCP_PRECISION=0.05 # GCP precision in m
-    GCP_POINTING_PRECISION=5 # Pointing precision of GCPs in images (pixels)
+    GCP_PRECISION=0.2 # GCP precision in m
+    GCP_POINTING_PRECISION=10 # Pointing precision of GCPs in images (pixels)
     GCP_PICK_FILE_INI = 'GCPs_pick_Ini.xml'
     GCP_PICK_FILE_INI_2D = 'GCPs_pick_Ini-S2D.xml'
     GCP_PICK_FILE_BASC = 'GCPs_pick_Basc.xml'
@@ -45,6 +46,10 @@ class Photo4d(object):
     GCP_PICK_FILE = 'GCPs_pick.xml'
     GCP_DETECT_FILE = 'GCPs_detect-S2D.xml'
     GCP_NAME_FILE = 'GCPs_names.txt'
+    shift=[410000, 6710000, 0]
+    # Parameters
+    distortion_model="Figee"
+
 
     def __init__(self, project_path, ext='jpg'):
         if not os.path.exists(project_path):
@@ -209,6 +214,10 @@ class Photo4d(object):
             print('WARNING Cannot delete temporary folder due to permission error')
 
     def create_mask(self, del_pictures=True):
+        '''
+        Note : Only the mask of the central (MASTER) image is necessary
+        '''
+        
         # add mkdir, and change dir
         mask_path = opj(self.project_path, Photo4d.MASK_FOLDER)
         if not os.path.exists(mask_path): os.makedirs(mask_path)
@@ -320,6 +329,10 @@ class Photo4d(object):
         print(command)
         utils.exec_mm3d(command)
         
+        # copy orientation file
+        copytree(os.path.join(gcp_path,'Ori-Bascule'), os.path.join(self.project_path,'Ori-Bascule'))
+        self.in_ori = os.path.join(self.project_path,'Ori-Bascule')
+        
         try:
             for image in selected_line[1:]:
                 os.remove(opj(gcp_path, image))
@@ -390,8 +403,7 @@ class Photo4d(object):
         XML_utils.write_S2D_xmlfile(self.dict_image_gcp,
                                     opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_DETECT_FILE ))
 
-    def process(self, master_folder=0, shift=None, clahe=False, tileGridSize_clahe=8, resol=-1,
-                distortion_model="Fraser",
+    def process(self, master_folder=0, clahe=False, tileGridSize_clahe=8, resol=-1,
                 re_estimate=True,
                 DefCor=0.0, delete_temp=True, display=True):
         if self.sorted_pictures is None:
@@ -402,10 +414,11 @@ class Photo4d(object):
         proc.process_from_array(self.cam_folders, self.sorted_pictures, opj(self.project_path, Photo4d.RESULT_FOLDER),
                                 inori=self.in_ori,
                                 gcp=self.gcp_coord_file, gcp_S2D=self.dict_image_gcp, clahe=clahe,
-                                tileGridSize_clahe=tileGridSize_clahe, resol=resol, distortion_model=distortion_model,
+                                tileGridSize_clahe=tileGridSize_clahe, resol=resol, distortion_model=self.distortion_model,
                                 re_estimate=re_estimate, master_folder=master_folder, masq2D=self.masks, DefCor=DefCor,
-                                shift=shift, delete_temp=delete_temp,
-                                display_micmac=display, cond=self.cond, GNSS_PRECISION=self.GCP_PRECISION, GCP_POINTING_PRECISION=self.GCP_POINTING_PRECISION)
+                                shift=self.shift, delete_temp=delete_temp,
+                                display_micmac=display, cond=self.cond, 
+                                GNSS_PRECISION=self.GCP_PRECISION, GCP_POINTING_PRECISION=self.GCP_POINTING_PRECISION)
 
     def set_selected_set(self, img_or_index: Union[int, str]):
         if self.sorted_pictures is None:
