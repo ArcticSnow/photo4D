@@ -25,7 +25,7 @@ import Utils as utils
 import Detect_Sift as ds
 import XML_utils
 import Image_utils as iu
-
+import matplotlib.pyplot as plt
 
 class Photo4d(object):
     # Class constants
@@ -36,7 +36,8 @@ class Photo4d(object):
     GCP_FOLDER = 'GCP'
     RESULT_FOLDER = "Results"
     # file names
-    GCP_COORD_FILE = 'GCPs_coordinates.xml'
+    GCP_COORD_FILE_INIT = 'GCPs_coordinates.xml'
+    GCP_COORD_FILE_FINAL = 'GCPs_pick-S3D.xml'
     DF_DETECT_FILE = 'df_detect.csv'
     SET_FILE = 'set_definition.txt'
     GCP_PRECISION=0.2 # GCP precision in m
@@ -101,8 +102,8 @@ class Photo4d(object):
             
         # add GCP initial files
         # =========================================================================
-        if os.path.exists(opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_COORD_FILE)):
-            self.gcp_coord_file = opj(self.project_path,Photo4d.GCP_FOLDER, Photo4d.GCP_COORD_FILE)
+        if os.path.exists(opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_COORD_FILE_INIT)):
+            self.gcp_coord_file = opj(self.project_path,Photo4d.GCP_FOLDER, Photo4d.GCP_COORD_FILE_INIT)
             print("Added gcp coordinates file")
         else:
             self.gcp_coord_file = None
@@ -240,13 +241,13 @@ class Photo4d(object):
             os.makedirs(opj(self.project_path, Photo4d.GCP_FOLDER))
             
         # copy coordinates file into the project
-        path2txt = opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_COORD_FILE)[:-4] + ".txt"
+        path2txt = opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_COORD_FILE_INIT)[:-4] + ".txt"
         copyfile(gcp_coords_file, path2txt)
         
         success, error = utils.exec_mm3d('mm3d GCPConvert #F={} {}'.format(file_format, path2txt),
                                          display=display)
         if success == 0:
-            self.gcp_coord_file = opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_COORD_FILE)
+            self.gcp_coord_file = opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_COORD_FILE_INIT)
             gcp_table = np.loadtxt(path2txt, dtype=str)
             
             try:
@@ -283,7 +284,7 @@ class Photo4d(object):
             'mm3d SaisieAppuisInitQt {} Ori-Ini {} {}'.format(file_set, self.GCP_NAME_FILE, self.GCP_PICK_FILE_INI))
         
         command = 'mm3d GCPBascule {} Ori-Ini Bascule-ini {} {}'.format(file_set,
-                                                                   self.GCP_COORD_FILE,
+                                                                   self.GCP_COORD_FILE_INIT,
                                                                    self.GCP_PICK_FILE_INI_2D)
         print(command)
         utils.exec_mm3d(command)
@@ -317,7 +318,7 @@ class Photo4d(object):
         file_set = file_set[:-1] + ")"
             
         command='mm3d SaisieAppuisPredicQt "{}" Ori-Bascule-ini {} {}'.format(file_set,
-                                                                   self.GCP_COORD_FILE,
+                                                                   self.GCP_COORD_FILE_INIT,
                                                                    self.GCP_PICK_FILE_BASC)
         print(command)        
         utils.exec_mm3d(command)
@@ -327,7 +328,7 @@ class Photo4d(object):
         print(command)        
         utils.exec_mm3d(command)
         
-        command = 'mm3d Campari {} Bascule-ini Bascule GCP=[{},{},{},{}] AllFree=1'.format(file_set, self.GCP_COORD_FILE, self.GCP_PRECISION, self.GCP_PICK_FILE_BASC_2D, self.GCP_POINTING_PRECISION)
+        command = 'mm3d Campari {} Bascule-ini Bascule GCP=[{},{},{},{}] AllFree=1'.format(file_set, self.GCP_COORD_FILE_INIT, self.GCP_PRECISION, self.GCP_PICK_FILE_BASC_2D, self.GCP_POINTING_PRECISION)
         print(command)
         utils.exec_mm3d(command)
         
@@ -364,10 +365,11 @@ class Photo4d(object):
         file_set = file_set[:-1] + ")"
             
         command='mm3d SaisieAppuisPredicQt "{}" Ori-Bascule {} {}'.format(file_set,
-                                                                   self.GCP_COORD_FILE,
+                                                                   self.GCP_COORD_FILE_INIT,
                                                                    self.GCP_PICK_FILE)
         print(command)        
         utils.exec_mm3d(command)
+        self.gcp_coord_file = opj(self.project_path,Photo4d.GCP_FOLDER, Photo4d.GCP_COORD_FILE_FINAL)
         
         try:
             for image in selected_line[1:]:
@@ -449,8 +451,81 @@ class Photo4d(object):
         else:
             print("Condition applied")
     # function to only execute program on a subseltection of images
+        
+    def graph_detected_gcps(self):
+        max_dist=50
+        magnitude_max=50
+        kernel_size=(200, 200)
+        df=self.df_detect_gcp
+        
+        df['Xshift'] = df.Xgcp_ini + df.Xdetect - df.Xini
+        df['Yshift'] = df.Ygcp_ini + df.Ydetect - df.Yini
+    
+        # compute vector module
+        df['magnitude'] = np.sqrt((df.Xini - df.Xdetect) ** 2 + (df.Yini - df.Ydetect) ** 2)
+    
+        # compute vector direction
+        df['direction'] = np.arctan2((df.Xini - df.Xdetect), (df.Yini - df.Ydetect)) * 180 / np.pi + 180
+    
+        # compute from gcp and tie point in the initial image (gcp is in the center of the extracts)
+        pos_center = kernel_size[0] / 2, kernel_size[1] / 2
+        df['dist'] = np.sqrt((df.Xini - pos_center[0]) ** 2 + (df.Yini - pos_center[1]) ** 2)
+    
+        # filter outliers having a incoherent magnitude
+        df_filtered = df.loc[df.magnitude <= magnitude_max]
+        
 
-
+        plt.figure(figsize=(20, 10))
+        plt.subplot(121)
+        
+        GCP_names_all=[]
+        Img_names_all=[]
+        for i in range(0,3):
+            df_filtered_middle = df_filtered.loc[df_filtered.folder_index == i]
+            nbGCPs=[]
+            GCP_names_onestack=[]
+            Img_names_onestack=[]
+            for date, group in df_filtered_middle.groupby(['date']):
+                GCP_names_oneim=[]
+                Img_names_onestack.append(group.Image[:1])
+                nbGCP=0
+                for gcp, group_gcp in group.groupby(['GCP']):
+                    group_gcp_filtered = group_gcp.loc[group_gcp.dist <= max_dist]
+                    if(len(group_gcp_filtered)>0):
+                        GCP_names_oneim.append(gcp)
+                        nbGCP=nbGCP+1
+                        #gcps=gcps + " " + gcp
+                nbGCPs.append(nbGCP)
+                #print('{}'.format(gcps))
+                #print('NbGCP : {}'.format(nbGCP))
+                #print('')
+                GCP_names_onestack.append(GCP_names_oneim)
+            GCP_names_all.append(GCP_names_onestack)
+            Img_names_all.append(Img_names_onestack)
+            plt.plot(nbGCPs)
+        
+        plt.title('GCP found in each image for each 3 stacks')
+        plt.grid(True)
+        plt.xlabel('Image group index')
+        plt.ylabel('Number of points')
+        plt.ylim(0,26)
+        
+        GCP_names_common=[]
+        GCP_nb_common=[]
+        for i in range(0,33):
+            GCP_names_common_oneSet = set(set(GCP_names_all[2][i]).intersection(GCP_names_all[1][i])).intersection(GCP_names_all[0][i])
+            GCP_names_common.append(GCP_names_common_oneSet)
+            print("{} {} {}".format(Img_names_all[i][0].values[0],Img_names_all[i][1].values[0],Img_names_all[i][2].values[0]))
+            print(GCP_names_common_oneSet)
+            GCP_nb_common.append(len(GCP_names_common_oneSet))
+        plt.subplot(122)    
+        plt.plot(GCP_nb_common)
+        plt.title('GCP found in all images of each timestamp')
+        plt.grid(True)
+        plt.xlabel('Image group index')
+        plt.ylabel('Number of points')
+        plt.ylim(0,26)
+        
 if __name__ == "__main__":
     myproj = Photo4d(project_path=r"I:\icemass-users\lucg\Finse\Photo4D\2018-1pm")
    # myproj.sort_picture()
@@ -465,6 +540,7 @@ if __name__ == "__main__":
     #myproj.pick_gcp_final()
     #myproj.detect_GCPs()
     #myproj.extract_GCPs()
+    #myproj.graph_detected_gcps()
     #myproj.process(resol=4000)
     # Part 1, sort and flag good picture set
     # myproj.sort_picture()
