@@ -452,7 +452,7 @@ class Photo4d(object):
             print("Condition applied")
     # function to only execute program on a subseltection of images
         
-    def graph_detected_gcps(self):
+    def graph_detected_gcps(self, nbInputGCPs=0):
         max_dist=50
         magnitude_max=50
         kernel_size=(200, 200)
@@ -460,21 +460,21 @@ class Photo4d(object):
         
         df['Xshift'] = df.Xgcp_ini + df.Xdetect - df.Xini
         df['Yshift'] = df.Ygcp_ini + df.Ydetect - df.Yini
-    
+        
         # compute vector module
         df['magnitude'] = np.sqrt((df.Xini - df.Xdetect) ** 2 + (df.Yini - df.Ydetect) ** 2)
-    
+        
         # compute vector direction
         df['direction'] = np.arctan2((df.Xini - df.Xdetect), (df.Yini - df.Ydetect)) * 180 / np.pi + 180
-    
+        
         # compute from gcp and tie point in the initial image (gcp is in the center of the extracts)
         pos_center = kernel_size[0] / 2, kernel_size[1] / 2
         df['dist'] = np.sqrt((df.Xini - pos_center[0]) ** 2 + (df.Yini - pos_center[1]) ** 2)
-    
+        
         # filter outliers having a incoherent magnitude
         df_filtered = df.loc[df.magnitude <= magnitude_max]
         
-
+        
         plt.figure(figsize=(20, 10))
         plt.subplot(121)
         
@@ -508,15 +508,18 @@ class Photo4d(object):
         plt.grid(True)
         plt.xlabel('Image group index')
         plt.ylabel('Number of points')
-        plt.ylim(0,26)
+        plt.ylim(0,nbInputGCPs)
         
         GCP_names_common=[]
         GCP_nb_common=[]
-        for i in range(0,33):
+        print("--------------------------------------")
+        for i in range(0,len(self.sorted_pictures)-1):
             GCP_names_common_oneSet = set(set(GCP_names_all[2][i]).intersection(GCP_names_all[1][i])).intersection(GCP_names_all[0][i])
             GCP_names_common.append(GCP_names_common_oneSet)
-            print("{} {} {}".format(Img_names_all[i][0].values[0],Img_names_all[i][1].values[0],Img_names_all[i][2].values[0]))
+            print("{} {} {}".format(Img_names_all[0][i].values[0],Img_names_all[1][i].values[0],Img_names_all[2][i].values[0]))
+            print("Number of points : {}".format(len(GCP_names_common_oneSet)))
             print(GCP_names_common_oneSet)
+            print("--------------------------------------")
             GCP_nb_common.append(len(GCP_names_common_oneSet))
         plt.subplot(122)    
         plt.plot(GCP_nb_common)
@@ -524,10 +527,11 @@ class Photo4d(object):
         plt.grid(True)
         plt.xlabel('Image group index')
         plt.ylabel('Number of points')
-        plt.ylim(0,26)
+        plt.ylim(0,nbInputGCPs)
         
 if __name__ == "__main__":
     myproj = Photo4d(project_path=r"I:\icemass-users\lucg\Finse\Photo4D\2018-1pm")
+    myproj = Photo4d(project_path=r"~/icemassME/Finse/Photo4D/2018-1pm")
    # myproj.sort_picture()
     #myproj.check_picture()
     #myproj.set_selected_set("DSC03111.JPG")
@@ -540,7 +544,7 @@ if __name__ == "__main__":
     #myproj.pick_gcp_final()
     #myproj.detect_GCPs()
     #myproj.extract_GCPs()
-    #myproj.graph_detected_gcps()
+    #myproj.graph_detected_gcps(50)
     #myproj.process(resol=4000)
     # Part 1, sort and flag good picture set
     # myproj.sort_picture()
