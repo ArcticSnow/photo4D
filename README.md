@@ -1,10 +1,10 @@
-# Photo4D: a Project to generate 4D data from time-lapse cameras
+# Photo4D: open-source time-lapse photogrammetry 
 
-Simon Filhol (simon.filhol@geo.uio.no)
-
-Guillaume Sutter (sutterguigui@gmail.com)
-
-Alexis Perret (aperret2010@hotmail.fr)
+Contributors by alphabetical orders:
+- Simon Filhol (simon.filhol@geo.uio.no)
+- Luc Girod (luc.girod@geo.uio.no)
+- Alexis Perret (aperret2010@hotmail.fr)
+- Guillaume Sutter (sutterguigui@gmail.com)
 
 ## Description
 
