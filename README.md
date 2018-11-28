@@ -166,7 +166,7 @@ myproj.process(resol=4000)
 To work on a development version and keep using the latest change install it with the following
 
 ```python
-pip install -e [path2folder/pybob]
+pip install -e [path2folder/photo4D]
 ```
 
 and to upload latest change to Pypi.org, simply:
