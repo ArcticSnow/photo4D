@@ -34,12 +34,11 @@ The project should be based on open-source libraries, for public release.
      python setup.py install
      ```
 
- 3. Use the setup.py to install the package
+ 3. The package is available via Pypi
 
      ```python
-     pip install -e [path_to_folder]/photo4D
+     pip install photo4d
      ```
-
 
 ## Objectives
 
@@ -154,8 +153,6 @@ myproj.process(resol=4000)
 4. run micmac script using different parameter (number of pics, position of camera, exposition
 5. estimate model error against (lidar?). Test Micmac method on a scene with no snow
 
-
-
 ## Ressources
 
 - Micmac: http://micmac.ensg.eu/index.php/Accueil
@@ -163,3 +160,21 @@ myproj.process(resol=4000)
 - Image processing images: skimage, openCV, Pillow
 - rawpy, a package to open raw images in Python: https://pypi.python.org/pypi/rawpy  http://pythonhosted.org/rawpy/api/
 - python package to read exif data: https://pip.pypa.io/en/latest/user_guide/
+
+## Development
+
+To work on a development version and keep using the latest change install it with the following
+
+```python
+pip install -e [path2folder/pybob]
+```
+
+and to upload latest change to Pypi.org, simply:
+
+1. change the version number in the file ```photo4d/__version__.py```
+2.  run from a terminal from the photo4D folder, given your $HOME/.pyc is correctly set:
+
+```shell
+python setup.py upload
+```
+
