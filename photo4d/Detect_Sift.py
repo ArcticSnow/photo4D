@@ -1,12 +1,15 @@
 import cv2 as cv
 import os
-from Process import pictures_array_from_file
-import XML_utils as uxml
+
+from photo4d.Process import pictures_array_from_file
+from photo4d.Image_utils import load_date
+import photo4d.XML_utils as uxml
+from photo4d.Utils import exec_mm3d
+
 from shutil import rmtree
 import pandas as pd
-from Image_utils import load_date
 import numpy as np
-from Utils import exec_mm3d
+
 
 """
 Compute GCP positions using a MicMac command : Tapioca 

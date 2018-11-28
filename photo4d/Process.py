@@ -2,13 +2,13 @@
 import numpy as np
 import os, time
 from shutil import copyfile, rmtree, copytree
-import Image_utils as iu
-import XML_utils
+import photo4d.Image_utils as iu
+import photo4d.XML_utils
 
 
 
-from Image_utils import load_date, load_lum, blurr, lum, process_clahe
-from Utils import exec_mm3d, pictures_array_from_file
+from photo4d.Image_utils import load_date, load_lum, blurr, lum, process_clahe
+from photo4d.Utils import exec_mm3d, pictures_array_from_file
 
 
 def sort_pictures(folder_path_list, output_path, ext="jpg", time_interval=600):

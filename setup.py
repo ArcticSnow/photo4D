@@ -8,6 +8,7 @@ import io
 import os
 import sys
 from shutil import rmtree
+import photo4d
 
 from setuptools import find_packages, setup, Command
 
@@ -22,7 +23,7 @@ VERSION = None
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    'lxml', 'pandas', 'numpy', 'matplotlib', 'opencv', 'pillow'
+    'lxml', 'pandas', 'numpy', 'matplotlib', 'opencv-python', 'pillow'
 ]
 
 # What packages are optional?
@@ -102,7 +103,7 @@ setup(
     author_email=EMAIL,
     python_requires=REQUIRES_PYTHON,
     url=URL,
-    packages=find_packages(exclude=('tests',)),
+    packages=find_packages(exclude=('tests','pyxif')),
     # If your package is a single module, use this instead of 'packages':
     # py_modules=['mypackage'],
 

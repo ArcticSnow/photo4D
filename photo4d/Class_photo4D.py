@@ -17,11 +17,11 @@ from shutil import copyfile, rmtree, copytree
 import matplotlib.pyplot as plt
 
 # Import project libary
-import Process as proc
-import Utils as utils
-import Detect_Sift as ds
-import XML_utils
-import Image_utils as iu
+import photo4d.Process as proc
+import photo4d.Utils as utils
+import photo4d.Detect_Sift as ds
+import photo4d.XML_utils
+import photo4d.Image_utils as iu
 
 
 class Photo4d(object):
