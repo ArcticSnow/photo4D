@@ -9,16 +9,17 @@ Contributors by alphabetical orders:
 ## Description
 
 This project consists of an automated program to generate point cloud from time-lapse set of images from independent cameras. The software: 
-      1) sorts images by timestamps, 
-      2) assess the image quality based on lumincace and bluriness, 
-      3) identify automatically GCPs through the stacks of images, 
-      4) run Micmac to compute point clouds, and 
-      5) convert point cloud to rasters. 
+​      1) sorts images by timestamps, 
+​      2) assess the image quality based on lumincace and bluriness, 
+​      3) identify automatically GCPs through the stacks of images, 
+​      4) run Micmac to compute point clouds, and 
+​      5) convert point cloud to rasters. 
 
 The project should be based on open-source libraries, for public release. 
 
 ## Installation
 1. install the latest version of [micmac](https://micmac.ensg.eu/index.php/Install)
+
 2. install python 3.6, and with anaconda, create a virtual environment with the following packages: 
      - opencv 
      - pandas 
@@ -32,8 +33,13 @@ The project should be based on open-source libraries, for public release.
      cd Pyxif-master
      python setup.py install
      ```
- 3. clone the github repository where you want on your system
-     git clone ....
+
+ 3. Use the setup.py to install the package
+
+     ```python
+     pip install -e [path_to_folder]/photo4D
+     ```
+
 
 ## Objectives
 

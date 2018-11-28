@@ -6,11 +6,7 @@ Program XXX Part I
 '''
 
 # import all function
-import sys
-sys.path.append('C:\Git\photo4D\python_script\micmacApp')
-sys.path.append('C:\Libraries\Pyxif-master')
-sys.path.append('/uio/lagringshotell/geofag/icemass/icemass-research/Scripts/photo4D/python_script/micmacApp')
-sys.path.append('/uio/lagringshotell/geofag/icemass/icemass-research/Scripts/Pyxif')
+import pyxif
 
 # import public library
 import os
@@ -18,6 +14,7 @@ from os.path import join as opj
 import numpy as np, pandas as pd
 from typing import Union
 from shutil import copyfile, rmtree, copytree
+import matplotlib.pyplot as plt
 
 # Import project libary
 import Process as proc
@@ -25,7 +22,7 @@ import Utils as utils
 import Detect_Sift as ds
 import XML_utils
 import Image_utils as iu
-import matplotlib.pyplot as plt
+
 
 class Photo4d(object):
     # Class constants
@@ -164,8 +161,41 @@ class Photo4d(object):
                                                   time_interval=time_interval,
                                                   ext=self.ext)
         return self.sorted_pictures
-    
+
+    def show_gcp_detected(self, img_filename):
+        '''
+        Function to plot detected GCPs by SIFT  (TBF)
+        '''
+        img = cv2.imread(img_filename)
+
+        # read GCP pix location in Pixel coordinate, and displacement in respect to original image
+
+        for index, point in gcp.iterrows():
+
+            cv2.circle(img,(int(point.xpix), int(point.ypix)),4, (0,255,0))
+
+            # add displacement vector
+            # Draw a diagonal blue line with thickness of 5 px
+            cv2.line(img,(xini,yini),(xfin,yfin),(0,255,0),line_thickness) 
+
+
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            cv2.putText(img,point.gcp_name,(int(point.xpix)+10, int(point.ypix)+10), font, 2,(0,255,0),3,cv2.LINE_AA)
+
+        # Open image with pyplot
+        plt.figure()
+        plt.imshow(img)
+        plt.show()
+
+
+
+
+
+
     def check_picture(self, luminosity_thresh=1, blur_thresh=6):
+        '''
+        Function to Check if pictures are not too dark and/or too blurry (e.g. fog)
+        '''
         if self.sorted_pictures is None:
             print("ERROR You must launch the sort_pictures() method before check_pictures()")
             exit(1)
@@ -174,14 +204,18 @@ class Photo4d(object):
                                                    lum_inf=luminosity_thresh,
                                                    blur_inf=blur_thresh)
         return self.sorted_pictures
-    
+
     def initial_orientation(self, resolution=5000, distortion_mode='Fraser', display=True, clahe=False,
                             tileGridSize_clahe=8):
+        '''
+        Function to initialize camera orientation of the reference set of images using the Micmac command Tapas
+        '''
+
         # add mkdir, and change dir
         tmp_path = opj(self.project_path, "tmp")
         if not os.path.exists(tmp_path): os.makedirs(tmp_path)
         os.chdir(tmp_path)
-        
+
         # select the set of good pictures to estimate initial orientation
         selected_line = self.sorted_pictures[self.selected_picture_set]
         file_set = "("
@@ -194,12 +228,12 @@ class Photo4d(object):
                 copyfile(in_path, out_path)
             file_set += selected_line[i + 1] + "|"
         file_set = file_set[:-1] + ")"
-            
+
         # Execute mm3d command for orientation
         success, error = utils.exec_mm3d("mm3d Tapioca All {} {}".format(file_set, resolution), display=display)
         success, error = utils.exec_mm3d(
             "mm3d Tapas {} {} Out={}".format(distortion_mode, file_set, Photo4d.ORI_FOLDER[4:]), display=display)
-        
+
         ori_path = opj(self.project_path, Photo4d.ORI_FOLDER)
         if success == 0:
             # copy orientation file
@@ -208,7 +242,7 @@ class Photo4d(object):
             self.in_ori = ori_path
         else:
             print("ERROR Orientation failed\nerror : " + str(error))
-            
+
         os.chdir(self.project_path)
         # todo thisraise a permission error despite this chdir I don't know why
         try:
@@ -236,7 +270,10 @@ class Photo4d(object):
         self.masks = mask_path
         
     def prepare_gcp_files(self, gcp_coords_file, file_format='N_X_Y_Z', display=True):
-        
+        '''
+        Function to prepare GCP coordinate from a textfile to Micmac xml format. Make sure your text file format is correct
+        '''
+
         if not os.path.exists(opj(self.project_path, Photo4d.GCP_FOLDER)):
             os.makedirs(opj(self.project_path, Photo4d.GCP_FOLDER))
             
@@ -249,7 +286,7 @@ class Photo4d(object):
         if success == 0:
             self.gcp_coord_file = opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_COORD_FILE_INIT)
             gcp_table = np.loadtxt(path2txt, dtype=str)
-            
+
             try:
                 gcp_name = gcp_table[:, file_format.split('_').index("N")]
                 np.savetxt(opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_NAME_FILE), gcp_name, fmt='%s',
@@ -262,6 +299,11 @@ class Photo4d(object):
             exit(1)
             
     def pick_gcp_ini(self):
+        '''
+        Function to initialize camera orientation
+        
+        Pick few GCPs (3 to 5) that MicMac can do a rough estimate of the camera orientation. Then go to pick_gcp_basc() to pick all GCPs of known location
+        '''
         if self.gcp_coord_file is None or self.gcp_names is None:
             print("ERROR prepare_gcp_files must be applied first")
         gcp_path = opj(self.project_path, Photo4d.GCP_FOLDER)
@@ -302,6 +344,12 @@ class Photo4d(object):
             print('WARNING Cannot delete temporary MicMac files due to permission error')
             
     def pick_gcp_basc(self, resolution=5000):
+        '''
+        Function to pick GCP location on the reference set of images.
+        
+        Pick all GCPs of known location. Then go the pick_gcp_final() to pick extra points that will also be used as reference buut with coordinates estimated from the camera orientation.
+        '''
+
         if self.gcp_coord_file is None or self.gcp_names is None:
             print("ERROR prepare_gcp_files must be applied first")
         gcp_path = opj(self.project_path, Photo4d.GCP_FOLDER)
@@ -349,6 +397,13 @@ class Photo4d(object):
             print('WARNING Cannot delete temporary MicMac files due to permission error')
             
     def pick_gcp_final(self):
+        '''
+        Function to pick additional points that can be set as 'GCPs'. These will get coordinates estimates based on camera orientation, and will be used in other set of images for triangulation.
+        This way, we artificailly increase the number of GCPs, and use the selected set of reference images as the absolute reference to which other 3D model will be orientated against. 
+        
+        Pick as many points as possible that are landmarks across the all set of image.
+        '''
+
         if self.gcp_coord_file is None or self.gcp_names is None:
             print("ERROR prepare_gcp_files must be applied first")
         gcp_path = opj(self.project_path, Photo4d.GCP_FOLDER)
@@ -394,7 +449,12 @@ class Photo4d(object):
             self.df_detect_gcp.to_csv(opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.DF_DETECT_FILE), sep=",")
             
     def extract_GCPs(self, magnitude_max=50, nb_values=5, max_dist=50, kernel_size=(200, 200), method="Median"):
+        '''
+        Function to sort
         
+        Pick all GCPs of known location. Then go the pick_gcp_final() to pick extra points that will also be used as reference buut with coordinates estimated from the camera orientation.
+        '''
+
         if self.df_detect_gcp is None:
             print("ERROR detect_GCPs() must have been run before trying to extract values")
             exit(1)

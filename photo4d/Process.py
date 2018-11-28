@@ -594,7 +594,7 @@ if __name__ == "__main__":
                        output_folder=output_folder, resol=2000, master_folder=2,
                        masq2D=masq2D, DefCor=0.4, inori=inori, re_estimate=True,
                        clahe=True, delete_temp=False, gcp_S2D=S2D, gcp=truc,
-                       distortion_model="Fraser", display_micmac=True, GNSS_PRECISION=0.2, GCP_POINTING_PRECISION=10)
+                       distortion_model="Fraser", display_micmac=True, GNSS_PRECISION=0.2, GCP_POINTING_PRECISION=5)
     # [410000, 6710000, 0]
     toc = time.time()
     temps = abs(toc - tic)
