@@ -54,7 +54,7 @@ class Photo4d(object):
     def __init__(self, project_path, ext='jpg'):
         if not os.path.exists(project_path):
             print("ERROR The path " + project_path + " doesn't exists")
-            exit(1)
+            return
             
         # add main folder
         self.project_path = os.path.abspath(project_path)
@@ -68,7 +68,7 @@ class Photo4d(object):
             print("Added {} camera folders : \n  {}".format(self.nb_folders, '\n  '.join(self.cam_folders)))
         else:
             print('You must create a folder "' + Photo4d.IMAGE_FOLDER + '/" containing your camera folders')
-            exit(1)
+            return
             
         # =========================================================================
         # add picture sets
@@ -157,7 +157,7 @@ class Photo4d(object):
         return string
     
     def sort_picture(self, time_interval=600):
-        self.sorted_pictures = proc.sort_pictures(self.cam_folders, opj(self.project_path, Photo4d.SET_FILE),
+        self.sorted_pictures = iu.sort_pictures(self.cam_folders, opj(self.project_path, Photo4d.SET_FILE),
                                                   time_interval=time_interval,
                                                   ext=self.ext)
         return self.sorted_pictures
@@ -198,8 +198,8 @@ class Photo4d(object):
         '''
         if self.sorted_pictures is None:
             print("ERROR You must launch the sort_pictures() method before check_pictures()")
-            exit(1)
-        self.sorted_pictures = proc.check_pictures(self.cam_folders, opj(self.project_path, Photo4d.SET_FILE),
+            return
+        self.sorted_pictures = iu.check_pictures(self.cam_folders, opj(self.project_path, Photo4d.SET_FILE),
                                                    self.sorted_pictures,
                                                    lum_inf=luminosity_thresh,
                                                    blur_inf=blur_thresh)
@@ -296,7 +296,7 @@ class Photo4d(object):
                 print("ERROR prepare_GCP_files(): Check file format and file delimiter. Delimiter is any space")
         else:
             print("ERROR prepare_GCP_files(): Check file format and file delimiter. Delimiter is any space")
-            exit(1)
+            return 0
             
     def pick_gcp_ini(self):
         '''
@@ -457,7 +457,7 @@ class Photo4d(object):
 
         if self.df_detect_gcp is None:
             print("ERROR detect_GCPs() must have been run before trying to extract values")
-            exit(1)
+            return 0
             
         self.dict_image_gcp, self.df_gcp_abs = ds.extract_values(self.df_detect_gcp, magnitude_max=magnitude_max,
                                                                  nb_values=nb_values, max_dist=max_dist,
@@ -472,7 +472,7 @@ class Photo4d(object):
                 DefCor=0.0, delete_temp=True, display=True):
         if self.sorted_pictures is None:
             print("ERROR You must apply sort_pictures() before doing anything else")
-            exit(1)
+            return
         print(self.in_ori, "LAAAAA")
         
         proc.process_from_array(self.cam_folders, self.sorted_pictures, opj(self.project_path, Photo4d.RESULT_FOLDER),
@@ -487,7 +487,7 @@ class Photo4d(object):
     def set_selected_set(self, img_or_index: Union[int, str]):
         if self.sorted_pictures is None:
             print("ERROR You must apply sort_pictures before trying to chose a set")
-            exit(1)
+            return
         else:
             if type(img_or_index) == int:
                 self.selected_picture_set = img_or_index
@@ -590,11 +590,11 @@ class Photo4d(object):
         plt.ylim(0,nbInputGCPs)
         
 if __name__ == "__main__":
-    myproj = Photo4d(project_path=r"I:\icemass-users\lucg\Finse\Photo4D\2018-1pm")
-    myproj = Photo4d(project_path=r"~/icemassME/Finse/Photo4D/2018-1pm")
+    myproj = Photo4d(project_path=r"L:\Finse\Photo4D\Test_V1_2019")
+   # myproj = Photo4d(project_path=r"~/icemassME/Finse/Photo4D/2018-1pm")
    # myproj.sort_picture()
     #myproj.check_picture()
-    #myproj.set_selected_set("DSC03111.JPG")
+    #myproj.set_selected_set("DSC02728.JPG")
 
     #myproj.initial_orientation()
     #myproj.create_mask()

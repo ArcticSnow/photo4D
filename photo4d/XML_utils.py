@@ -117,10 +117,10 @@ def read_S2D_xmlfile(file_path):
 
     except etree.XMLSyntaxError:
         print("WARNING The xml file is not valid  " + file_path)
-        exit(1)
+        return
     except FileNotFoundError:
         print("WARNING Cannot find file S2D xml at  " + file_path)
-        exit(1)
+        return
 
     return dic_img_measures
 
@@ -224,7 +224,7 @@ def write_S2D_xmlfile(dico_img_measures, file_name):
             file.write(etree.tostring(measures_set, pretty_print=True).decode('utf-8'))
     except IOError:
         print('Error while writing file')
-        exit(1)
+        return
 
 
 def write_masq_xml(tif_mask, output=""):
@@ -238,12 +238,12 @@ def write_masq_xml(tif_mask, output=""):
     # do some checks
     if tif_mask.split('.')[-1] not in ["tif", "tiff"]:
         print("Wrong input path " + tif_mask + "\n Must be a .tif file")
-        exit(1)
+        return
     if output == "":
         output = '.'.join(tif_mask.split('.')[:-1]) + ".xml"
     elif output.split('.')[-1] != "xml":
         print("Wrong output path " + output + "\n Must be a .xml file")
-        exit(1)
+        return
 
     file_ori = etree.Element('FileOriMnt')
     name = etree.SubElement(file_ori, 'NameFileMnt')
@@ -267,7 +267,7 @@ def write_masq_xml(tif_mask, output=""):
             file.write(etree.tostring(file_ori, pretty_print=True).decode('utf-8'))
     except IOError:
         print('Error while writing file')
-        exit(1)
+        return
 
 
 def change_Ori(initial_pictures, final_pictures, ori_folder_path):
@@ -283,10 +283,10 @@ def change_Ori(initial_pictures, final_pictures, ori_folder_path):
     print( os.path.basename(ori_folder_path)[:4])
     if os.path.basename(ori_folder_path)[:4] != "Ori-":
         print("Ori path is not valid : {}\nYou need to enter the path to the Ori-folder ".format(ori_folder_path))
-        exit(1)
+        return
     elif len(initial_pictures) != len(final_pictures):
         print("List of input and output pictures must have the same size")
-        exit(1)
+        return
     nb_pictures = len(initial_pictures)
 
     # change orientation files
@@ -316,7 +316,7 @@ def change_xml(initial_pictures, final_pictures, xml_path):
     # checking length
     if len(initial_pictures) != len(final_pictures):
         print("List of input and output pictures must have the same size")
-        exit(1)
+        return
     nb_pictures = len(initial_pictures)
 
     # Read the xml file

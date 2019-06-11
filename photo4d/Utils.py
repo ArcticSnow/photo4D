@@ -19,9 +19,9 @@ def exec_mm3d(command, display=True):
     :param display: display or not the logs from MicMac, boolean
     :return:
     """
-    if command[:5] != "mm3d ":
-        print("WARNING The command must begin with mm3d")
-        exit(1)
+    if(command[:5] != "mm3d "):
+        print("WARNING The command must begin with mm3d\n")
+        return 0, None
 
     process = Popen(command.split(" "), stdout=PIPE, stderr=STDOUT)
     for line_bin in iter(process.stdout.readline, b''):

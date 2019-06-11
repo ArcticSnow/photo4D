@@ -17,7 +17,7 @@ NAME = 'photo4d'
 DESCRIPTION = 'Open source project to perform time-lapse photogrammetry'
 URL = 'https://github.com/ArcticSnow/photo4D'
 EMAIL = 'simon.filhol@geo.uio.no'
-AUTHOR = 'S. Filhol, A. Perret, G. Sutter, and L. Grirod'
+AUTHOR = 'S. Filhol, A. Perret, G. Sutter, and L. Girod'
 REQUIRES_PYTHON = '>=3.6.0'
 VERSION = None
 

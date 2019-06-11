@@ -75,7 +75,7 @@ def detect_from_s2d_xml(s2d_xml_path, folder_list, pictures_array, samples_folde
             samples_folder_list.append(folder_list[i] + "Samples/")
     elif nb_folders != len(samples_folder_list):
         print("WARNING the parameter samples_folder_list must have the same number of folders as folder_list")
-        exit(1)
+        return
     for i in range(nb_folders):
         samples_folder = samples_folder_list[i]
         if not os.path.exists(samples_folder):
@@ -83,7 +83,7 @@ def detect_from_s2d_xml(s2d_xml_path, folder_list, pictures_array, samples_folde
                 os.makedirs(samples_folder)
             except IOError:
                 print("WARNING Invalid path " + samples_folder + " in samples_folder_list")
-                exit(1)
+                return
         if samples_folder[-1] != "/": samples_folder_list[i] += "/"
 
     # ==================================================================================================================
@@ -228,7 +228,7 @@ def extract_values(df, magnitude_max=50, nb_values=5, max_dist=50, kernel_size=(
                     measure = group2.Xshift.min(), group2.Yshift.min()
                 else:
                     print('Method must be one of these values:\n"Median"\n"Min"\n"Mean"')
-                    exit(1)
+                    return
                 date = group2.date.min()
                 dic_gcp[gcp] = measure
 
