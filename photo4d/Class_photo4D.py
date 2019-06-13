@@ -29,6 +29,7 @@ class Photo4d(object):
     # folders
     IMAGE_FOLDER = 'Images'
     ORI_FOLDER = "Ori-Ini"
+    ORI_FINAL = "Ori-Bascule"
     MASK_FOLDER = 'Masks'
     GCP_FOLDER = 'GCP'
     RESULT_FOLDER = "Results"
@@ -196,14 +197,14 @@ class Photo4d(object):
 
 
 
-    def check_picture(self, luminosity_thresh=1, blur_thresh=6):
+    def check_picture_quality(self, luminosity_thresh=1, blur_thresh=6):
         '''
         Function to Check if pictures are not too dark and/or too blurry (e.g. fog)
         '''
         if self.sorted_pictures is None:
             print("ERROR You must launch the sort_pictures() method before check_pictures()")
             return
-        self.sorted_pictures = iu.check_pictures(self.cam_folders, opj(self.project_path, Photo4d.SET_FILE),
+        self.sorted_pictures = iu.check_picture_quality(self.cam_folders, opj(self.project_path, Photo4d.SET_FILE),
                                                    self.sorted_pictures,
                                                    lum_inf=luminosity_thresh,
                                                    blur_inf=blur_thresh)
@@ -248,7 +249,7 @@ class Photo4d(object):
         os.chdir(self.project_path)
             
             
-    def timeSIFT_orientation(self, resolution=5000, distortion_mode='Fraser', display=True, clahe=False,
+    def timeSIFT_orientation(self, resolution=5000, distortion_mode='Fraser', display=False, clahe=False,
                             tileGridSize_clahe=8):
         '''
         Function to initialize camera orientation of the reference set of images using the Micmac command Tapas
@@ -260,20 +261,21 @@ class Photo4d(object):
         
         
         for s in range(len(self.sorted_pictures)):
-            selected_line = self.sorted_pictures[s]
-            for i in range(len(self.cam_folders)):
-                in_path = opj(self.cam_folders[i], selected_line[i + 1])
-                out_path = opj(self.tmp_path, selected_line[i + 1])
-                if clahe:
-                    iu.process_clahe(in_path, tileGridSize_clahe, out_path=out_path)
-                else:
-                    copyfile(in_path, out_path)
-        file_set = ".*"+ self.ext
+            if self.sorted_pictures[s, 1]:
+                selected_line = self.sorted_pictures[s]
+                
+                for i in range(len(self.cam_folders)):
+                    in_path = opj(self.cam_folders[i], selected_line[i + 2])
+                    out_path = opj(self.tmp_path, selected_line[i + 2])
+                    if clahe:
+                        iu.process_clahe(in_path, tileGridSize_clahe, out_path=out_path)
+                    else:
+                        copyfile(in_path, out_path)
 
         # Execute mm3d command for orientation
-        success, error = utils.exec_mm3d("mm3d Tapioca All {} {}".format(file_set, resolution), display=display)
+        success, error = utils.exec_mm3d("mm3d Tapioca All {} {}".format(".*" + self.ext, resolution), display=display)
         success, error = utils.exec_mm3d(
-            "mm3d Tapas {} {} Out={}".format(distortion_mode, file_set, Photo4d.ORI_FOLDER[4:]), display=display)
+            "mm3d Tapas {} {} Out={}".format(distortion_mode, ".*" + self.ext, Photo4d.ORI_FOLDER[4:]), display=display)
 
         ori_path = opj(self.project_path, Photo4d.ORI_FOLDER)
         if success == 0:
@@ -378,10 +380,7 @@ class Photo4d(object):
         for i in range(len(self.cam_folders)):
             file_set += selected_line[i + 1] + "|"
         file_set = file_set[:-1] + ")"
-        
-        print(commandBasc)
-        utils.exec_mm3d(commandBasc)
-        
+
         command='mm3d SaisieAppuisPredicQt "{}" Bascule-Ini {} {}'.format(file_set,
                                                                    self.GCP_COORD_FILE_INIT,
                                                                    self.GCP_PICK_FILE)
@@ -413,7 +412,8 @@ class Photo4d(object):
             command = 'mm3d Campari {} Bascule-Ini Bascule GCP=[{},{},{},{}] AllFree=1'.format(file_set, self.GCP_COORD_FILE_INIT, self.GCP_PRECISION, self.GCP_PICK_FILE_2D, self.GCP_POINTING_PRECISION)
             print(command)
             utils.exec_mm3d(command)
-        
+            copytree(opj(self.tmp_path, 'Ori-Bascule'),  Photo4d.ORI_FINAL)
+             
         # Go back from tmp dir to project dir        
         os.chdir(self.project_path)
 
@@ -444,6 +444,25 @@ class Photo4d(object):
         
         # Go back from tmp dir to project dir        
         os.chdir(self.project_path)
+
+
+    def process_all_timesteps(self, master_folder_id=0, clahe=False, tileGridSize_clahe=8, 
+                              zoomF=1, Ori='Bascule', DefCor=0.0, shift=None, keep_rasters=True, display=False):
+        if self.sorted_pictures is None:
+            print("ERROR You must apply sort_pictures() before doing anything else")
+            return
+
+        proc.process_all_timesteps(self.tmp_path, self.sorted_pictures, opj(self.project_path, Photo4d.RESULT_FOLDER),
+                          clahe=clahe, tileGridSize_clahe=tileGridSize_clahe, zoomF=zoomF,
+                          master_folder_id=master_folder_id, Ori=Ori, DefCor=DefCor,
+                          shift=shift, keep_rasters=keep_rasters, display_micmac=display)
+
+
+
+
+
+
+
             
     def detect_GCPs(self, kernel_size=(200, 200), display=True, save_df_gcp=True):
         
@@ -490,7 +509,10 @@ class Photo4d(object):
                                 shift=self.shift, delete_temp=delete_temp,
                                 display_micmac=display, cond=self.cond, 
                                 GNSS_PRECISION=self.GCP_PRECISION, GCP_POINTING_PRECISION=self.GCP_POINTING_PRECISION)
-        
+    
+
+    
+    
     def set_selected_set(self, img_or_index: Union[int, str]):
         if self.sorted_pictures is None:
             print("ERROR You must apply sort_pictures before trying to chose a set")
@@ -596,11 +618,59 @@ class Photo4d(object):
         plt.ylabel('Number of points')
         plt.ylim(0,nbInputGCPs)
         
+
+    def clean_up_tmp(self):
+        '''
+        Function to delete the working folder.
+        '''
+        try:
+            rmtree(self.tmp_path)  
+        except FileNotFoundError:
+            pass
+        except PermissionError:
+            print("Permission Denied, cannot delete " + self.tmp_path)
+        except OSError:
+            pass      
+                
+                
+                
 if __name__ == "__main__":
+    
+    # myproj = p4d.Photo4d(project_path=r"C:\Users\lucg\Desktop\Test_V1_2019")
+    # myproj.sort_picture()
+    # myproj.check_picture_quality()
+    # myproj.timeSIFT_orientation()
+    ## TODO : mask tie points
+    # myproj.prepare_gcp_files(r"C:\Users\lucg\Desktop\Test_V1_2019\GCPs_coordinates_manual.txt",file_format="N_X_Y_Z")
+    ## Select a set to input GCPs
+    # myproj.set_selected_set("DSC02728.JPG")
+    ## Input GCPs in 3 steps
+    # myproj.pick_initial_gcps()
+    # myproj.compute_transform()
+    # myproj.pick_all_gcps()
+    ## Eventually, change selected set to add GCP imput to more image (n times):
+        #myproj.compute_transform()
+        #myproj.set_selected_set("DSC02871.JPG")
+        #myproj.pick_all_gcps()        
+    #myproj.compute_transform(doCampari=True)
+    
+    ## FUNCTION TO CHANGE FOR TIMESIFT
+    # myproj.create_mask()
+    # myproj.process_all_timesteps()
+    # myproj.clean_up_tmp()
+    
+    
+    
+    
+    
+    
+    #OLD STUFF
+    
+    
     myproj = Photo4d(project_path=r"L:\Finse\Photo4D\Test_V1_2019")
    # myproj = Photo4d(project_path=r"~/icemassME/Finse/Photo4D/2018-1pm")
    # myproj.sort_picture()
-    #myproj.check_picture()
+    #myproj.check_picture_quality()
     
     #myproj.set_selected_set("DSC02728.JPG")
     #myproj.initial_orientation()
@@ -612,24 +682,7 @@ if __name__ == "__main__":
     #myproj.pick_gcp_final()
     #myproj.compute_transform(doCampari=True)
     
-    #myproj.timeSIFT_orientation()
-    # TODO : mask tie points
-    #myproj.prepare_gcp_files(r"C:\Users\lucg\Desktop\Test_V1_2019\GCPs_coordinates_manual.txt",file_format="N_X_Y_Z")
-    # Select a set to input GCPs
-    #myproj.set_selected_set("DSC02728.JPG")
-    # Input GCPs in 3 steps
-    #myproj.pick_initial_gcps()
-    #myproj.compute_transform()
-    #myproj.pick_all_gcps()
-    # Eventually, change selected set to add GCP imput to more image (n times):
-        #myproj.compute_transform()
-        #myproj.set_selected_set("DSC02871.JPG")
-        #myproj.pick_all_gcps()        
-    #myproj.compute_transform(doCampari=True)
-    
-    # FUNCTION TO CHANGE FOR TIMESIFT
-    # myproj.create_mask()
-    # myproj.process()
+
     
     
     #TODO: function to clean micmac diurectory (if needed)
@@ -640,7 +693,7 @@ if __name__ == "__main__":
     #myproj.process(resol=4000)
     # Part 1, sort and flag good picture set
     # myproj.sort_picture()
-    # myproj.check_picture()
+    # myproj.check_picture_quality()
 
     # Part 2: Manual
     # choose either:
