@@ -9,11 +9,11 @@ Contributors by alphabetical orders:
 ## Description
 
 This project consists of an automated program to generate point cloud from time-lapse set of images from independent cameras. The software: 
-​      1. sorts images by timestamps, 
-​      2. assess the image quality based on lumincace and bluriness, 
-​      3. identify automatically GCPs through the stacks of images, 
-​      4. run Micmac to compute point clouds, and 
-​      5. convert point cloud to rasters. (not implemented)
+1. sorts images by timestamps, 
+2. assess the image quality based on lumincace and bluriness, 
+3. identify automatically GCPs through the stacks of images, 
+4. run Micmac to compute point clouds, and 
+5. convert point cloud to rasters. (not implemented)
 
 The project should be based on open-source libraries, for public release. 
 
