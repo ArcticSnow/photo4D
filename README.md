@@ -75,83 +75,57 @@ The project should be based on open-source libraries, for public release.
 # Set Project path
 myproj = Photo4d(project_path="point to project folder /Project")
 
-# Algorithm to sort images in triplets
+# Algorithm to sort images in triplets, and create the reference table with sets :date, valid set, image names
 myproj.sort_picture()
 
 # Algorithm to check picture quality (exposure and blurriness)
-myproj.check_picture()
+myproj.check_picture_quality()
 
 ############################################################
-## Part 2: Manual preparation for MicMac
+## Part 2: Estimate camera orientation
 
-# Provide the name of one image to set the triplet of reference
-myproj.set_selected_set("DSC00857.JPG")
-# myproj.selected_picture_set = -1  # by default get the last set of image. Change to the correct index where there are good quality images
+# Compute camera orientation using the timeSIFT method:
+myproj.timeSIFT_orientation()
 
-# command telling Micmac to compute camera orientation for the reference set
-myproj.initial_orientation()
+# Convert a text file containing the GCP coordinates to the proper format (.xml) for Micmac
+myproj.prepare_gcp_files(path_to_GCP_file, file_format="N_X_Y_Z")
 
-# Open MicMac user interface to define mask of the region of interest (ROI). Select a polygon for the ROI, and exit the window. This needs to be done for each camera.
-myproj.create_mask()
+# Select a set to input GCPs
+myproj.set_selected_set("DSC02728.JPG")
+
+# Input GCPs in 3 steps
+# first select 3 to five GCPs to pre-orient the images
+myproj.pick_initial_gcps()
+
+# Apply transformation based on the few GCPs previously picked
+myproj.compute_transform()
+
+# Pick additionnal GCPs, that are now pre-estimated
+myproj.pick_all_gcps()
 
 ############################################################
-## Part 3: Derive GCPS in image stack
+## Part2, optional: pick GCPs on extre image set
+## If you need to pick GCPs on another set of images, change selected set (this can be repeated n times):
+#myproj.compute_transform()
+#myproj.set_selected_set("DSC02871.JPG")
+#myproj.pick_all_gcps()
 
-# Point the app to the text file with the GPS locations of the GCPs in format (name, East, North, Elec)
-myproj.prepare_gcp_files("C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/GCP/Pt_gps_gcp.txt")
+# Compute final transform using all picked GCPs
+myproj.compute_transform(doCampari=True)
 
-# Pick GCPs manually with Micmac user interface on the reference set for each camera
-myproj.pick_gcp()
+## FUNCTION TO CHANGE FOR TIMESIFT
+# myproj.create_mask() #To be finished
 
+############################################################
+## Part3: Compute point clouds
 
+# Compute point cloud, correlation matrix, and depth matrix for each set of image
+myproj.process_all_timesteps()
 
+# Clean (remove) the temporary working direction
+myproj.clean_up_tmp()
 
-#=========================================================== Continue help from here
-#myproj.detect_GCPs()
-#myproj.extract_GCPs()
-myproj.process(resol=4000)
-# Part 1, sort and flag good picture set
-# myproj.sort_picture()
-# myproj.check_picture()
-
-# Part 2: Manual
-# choose either:
-# 		- Calibration, calibration of camera (TODO)
-# 		- Orientation, estimate camera position
-
-# myproj.selected_picture_set = -1  # by default get the last set of image. Change to the correct index where there are good quality images
-# myproj.oriententation_intitial()
-
-# myproj.selected_picture_set = -1
-# myproj.create_mask()
-
-# Part 3: Derive GCPS in image stack
-
-# myproj.prepare_GCP_files("GCPs.txt")  # format the text file to
-
-# myproj.selected_picture_set = -1
-# myproj.pick_GCP()
-
-# myproj.detect_GCPs()
-
-# point GCP (manual)
-# estimate on stack
-
-# Part 4: Process images to point cloud
-# myproj.process()
 ```
-
-
-[Insert here example on how to use the package]
-
-## Strategy
-
-1. open RAW on Python and split image between snow area and other using threshold
-2. expose using histogram equalizer both masked selection
-3. recombine image to run through Micmac
-
-4. run micmac script using different parameter (number of pics, position of camera, exposition
-5. estimate model error against (lidar?). Test Micmac method on a scene with no snow
 
 ## Ressources
 
@@ -163,9 +137,12 @@ myproj.process(resol=4000)
 
 ## Development
 
+Message us to be added as a contributor, then if you can also modify the code to your own convenience with the following steps:
+
 To work on a development version and keep using the latest change install it with the following
 
-```python
+```shell
+git clone git@github.com:ArcticSnow/photo4D.git
 pip install -e [path2folder/photo4D]
 ```
 
