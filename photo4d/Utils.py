@@ -5,7 +5,6 @@ Some useful functions
 from subprocess import Popen, PIPE, STDOUT
 import sys
 import numpy as np
-from photo4d.Image_utils import load_date
 
 
 

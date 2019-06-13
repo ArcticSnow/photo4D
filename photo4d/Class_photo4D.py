@@ -5,22 +5,17 @@ Program XXX Part I
 
 '''
 
-# import all function
-import pyxif
-
 # import public library
 import os
 from os.path import join as opj
-import numpy as np, pandas as pd
+import numpy as np
 from typing import Union
 from shutil import copyfile, rmtree, copytree
-import matplotlib.pyplot as plt
 
 # Import project libary
 import photo4d.Process as proc
 import photo4d.Utils as utils
 import photo4d.Detect_Sift as ds
-import photo4d.XML_utils
 import photo4d.Image_utils as iu
 
 
@@ -106,19 +101,6 @@ class Photo4d(object):
             self.gcp_names = opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_NAME_FILE)
         else:
             self.gcp_names = None
-        # =========================================================================
-        # add result of GCPs detection
-        if os.path.exists(opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.DF_DETECT_FILE)):
-            self.df_detect_gcp = pd.read_csv(opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.DF_DETECT_FILE))
-            print("Added gcp detection raw results")
-        else:
-            self.df_detect_gcp = None
-        if os.path.exists(opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_DETECT_FILE)):
-            self.dict_image_gcp = XML_utils.read_S2D_xmlfile(
-                opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_DETECT_FILE))
-            print("Added gcp detection final results")
-        else:
-            self.dict_image_gcp = None
             
         # extension of the images
         self.ext = ext
@@ -167,35 +149,6 @@ class Photo4d(object):
                                                   ext=self.ext)
         return self.sorted_pictures
 
-    def show_gcp_detected(self, img_filename):
-        '''
-        Function to plot detected GCPs by SIFT  (TBF)
-        '''
-        img = cv2.imread(img_filename)
-
-        # read GCP pix location in Pixel coordinate, and displacement in respect to original image
-
-        for index, point in gcp.iterrows():
-
-            cv2.circle(img,(int(point.xpix), int(point.ypix)),4, (0,255,0))
-
-            # add displacement vector
-            # Draw a diagonal blue line with thickness of 5 px
-            cv2.line(img,(xini,yini),(xfin,yfin),(0,255,0),line_thickness) 
-
-
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(img,point.gcp_name,(int(point.xpix)+10, int(point.ypix)+10), font, 2,(0,255,0),3,cv2.LINE_AA)
-
-        # Open image with pyplot
-        plt.figure()
-        plt.imshow(img)
-        plt.show()
-
-
-
-
-
 
     def check_picture_quality(self, luminosity_thresh=1, blur_thresh=6):
         '''
@@ -210,44 +163,6 @@ class Photo4d(object):
                                                    blur_inf=blur_thresh)
         return self.sorted_pictures
 
-    def initial_orientation(self, resolution=5000, distortion_mode='Fraser', display=True, clahe=False,
-                            tileGridSize_clahe=8):
-        '''
-        Function to initialize camera orientation of the reference set of images using the Micmac command Tapas
-        '''
-
-        # change from working dir to tmp dir
-        os.chdir(self.tmp_path)
-        
-        # select the set of good pictures to estimate initial orientation
-        selected_line = self.sorted_pictures[self.selected_picture_set]
-        file_set = "("
-        for i in range(len(self.cam_folders)):
-            in_path = opj(self.cam_folders[i], selected_line[i + 1])
-            out_path = opj(self.tmp_path, selected_line[i + 1])
-            if clahe:
-                iu.process_clahe(in_path, tileGridSize_clahe, out_path=out_path)
-            else:
-                copyfile(in_path, out_path)
-            file_set += selected_line[i + 1] + "|"
-        file_set = file_set[:-1] + ")"
-
-        # Execute mm3d command for orientation
-        success, error = utils.exec_mm3d("mm3d Tapioca All {} {}".format(file_set, resolution), display=display)
-        success, error = utils.exec_mm3d(
-            "mm3d Tapas {} {} Out={}".format(distortion_mode, file_set, Photo4d.ORI_FOLDER[4:]), display=display)
-
-        ori_path = opj(self.project_path, Photo4d.ORI_FOLDER)
-        if success == 0:
-            # copy orientation file
-            if os.path.exists(ori_path): rmtree(ori_path)
-            copytree(opj(self.tmp_path, Photo4d.ORI_FOLDER), ori_path)
-            self.in_ori = ori_path
-        else:
-            print("ERROR Orientation failed\nerror : " + str(error))
-
-        os.chdir(self.project_path)
-            
             
     def timeSIFT_orientation(self, resolution=5000, distortion_mode='Fraser', display=False, clahe=False,
                             tileGridSize_clahe=8):
@@ -458,60 +373,6 @@ class Photo4d(object):
                           shift=shift, keep_rasters=keep_rasters, display_micmac=display)
 
 
-
-
-
-
-
-            
-    def detect_GCPs(self, kernel_size=(200, 200), display=True, save_df_gcp=True):
-        
-        xml_file = opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_PICK_FILE[:-4] + '-S2D.xml')
-        self.df_detect_gcp = ds.detect_from_s2d_xml(xml_file, self.cam_folders,
-                                                    self.sorted_pictures, kernel_size=kernel_size,
-                                                    display_micmac=display)
-        if save_df_gcp:
-            print("  Saving result to .csv")
-            self.df_detect_gcp.to_csv(opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.DF_DETECT_FILE), sep=",")
-            
-    def extract_GCPs(self, magnitude_max=50, nb_values=5, max_dist=50, kernel_size=(200, 200), method="Median"):
-        '''
-        Function to sort
-        
-        Pick all GCPs of known location. Then go the pick_gcp_final() to pick extra points that will also be used as reference buut with coordinates estimated from the camera orientation.
-        '''
-
-        if self.df_detect_gcp is None:
-            print("ERROR detect_GCPs() must have been run before trying to extract values")
-            return 0
-            
-        self.dict_image_gcp, self.df_gcp_abs = ds.extract_values(self.df_detect_gcp, magnitude_max=magnitude_max,
-                                                                 nb_values=nb_values, max_dist=max_dist,
-                                                                 kernel_size=kernel_size, method=method)
-        
-        # write xml file for the record
-        XML_utils.write_S2D_xmlfile(self.dict_image_gcp,
-                                    opj(self.project_path, Photo4d.GCP_FOLDER, Photo4d.GCP_DETECT_FILE ))
-        
-    def process(self, master_folder=0, clahe=False, tileGridSize_clahe=8, resol=-1,
-                re_estimate=True,
-                DefCor=0.0, delete_temp=True, display=True):
-        if self.sorted_pictures is None:
-            print("ERROR You must apply sort_pictures() before doing anything else")
-            return
-        print(self.in_ori, "LAAAAA")
-        
-        proc.process_from_array(self.cam_folders, self.sorted_pictures, opj(self.project_path, Photo4d.RESULT_FOLDER),
-                                inori=self.in_ori,
-                                gcp=self.gcp_coord_file, gcp_S2D=self.dict_image_gcp, clahe=clahe,
-                                tileGridSize_clahe=tileGridSize_clahe, resol=resol, distortion_model=self.distortion_model,
-                                re_estimate=re_estimate, master_folder=master_folder, masq2D=self.masks, DefCor=DefCor,
-                                shift=self.shift, delete_temp=delete_temp,
-                                display_micmac=display, cond=self.cond, 
-                                GNSS_PRECISION=self.GCP_PRECISION, GCP_POINTING_PRECISION=self.GCP_POINTING_PRECISION)
-    
-
-    
     
     def set_selected_set(self, img_or_index: Union[int, str]):
         if self.sorted_pictures is None:
@@ -533,90 +394,7 @@ class Photo4d(object):
                     i += 1
                 if not found:
                     print('image {} not in sorted_pictures'.format(img_or_index))
-                    
-    def add_cond(self, condition):
-        if type(condition) != function:
-            print("WARNING input condition must be a function, which return a boolean and take a date as parameter")
-        else:
-            print("Condition applied")
-    # function to only execute program on a subseltection of images
-        
-    def graph_detected_gcps(self, nbInputGCPs=0):
-        max_dist=50
-        magnitude_max=50
-        kernel_size=(200, 200)
-        df=self.df_detect_gcp
-        
-        df['Xshift'] = df.Xgcp_ini + df.Xdetect - df.Xini
-        df['Yshift'] = df.Ygcp_ini + df.Ydetect - df.Yini
-        
-        # compute vector module
-        df['magnitude'] = np.sqrt((df.Xini - df.Xdetect) ** 2 + (df.Yini - df.Ydetect) ** 2)
-        
-        # compute vector direction
-        df['direction'] = np.arctan2((df.Xini - df.Xdetect), (df.Yini - df.Ydetect)) * 180 / np.pi + 180
-        
-        # compute from gcp and tie point in the initial image (gcp is in the center of the extracts)
-        pos_center = kernel_size[0] / 2, kernel_size[1] / 2
-        df['dist'] = np.sqrt((df.Xini - pos_center[0]) ** 2 + (df.Yini - pos_center[1]) ** 2)
-        
-        # filter outliers having a incoherent magnitude
-        df_filtered = df.loc[df.magnitude <= magnitude_max]
-        
-        
-        plt.figure(figsize=(20, 10))
-        plt.subplot(121)
-        
-        GCP_names_all=[]
-        Img_names_all=[]
-        for i in range(0,3):
-            df_filtered_middle = df_filtered.loc[df_filtered.folder_index == i]
-            nbGCPs=[]
-            GCP_names_onestack=[]
-            Img_names_onestack=[]
-            for date, group in df_filtered_middle.groupby(['date']):
-                GCP_names_oneim=[]
-                Img_names_onestack.append(group.Image[:1])
-                nbGCP=0
-                for gcp, group_gcp in group.groupby(['GCP']):
-                    group_gcp_filtered = group_gcp.loc[group_gcp.dist <= max_dist]
-                    if(len(group_gcp_filtered)>0):
-                        GCP_names_oneim.append(gcp)
-                        nbGCP=nbGCP+1
-                        #gcps=gcps + " " + gcp
-                nbGCPs.append(nbGCP)
-                #print('{}'.format(gcps))
-                #print('NbGCP : {}'.format(nbGCP))
-                #print('')
-                GCP_names_onestack.append(GCP_names_oneim)
-            GCP_names_all.append(GCP_names_onestack)
-            Img_names_all.append(Img_names_onestack)
-            plt.plot(nbGCPs)
-        
-        plt.title('GCP found in each image for each 3 stacks')
-        plt.grid(True)
-        plt.xlabel('Image group index')
-        plt.ylabel('Number of points')
-        plt.ylim(0,nbInputGCPs)
-        
-        GCP_names_common=[]
-        GCP_nb_common=[]
-        print("--------------------------------------")
-        for i in range(0,len(self.sorted_pictures)-1):
-            GCP_names_common_oneSet = set(set(GCP_names_all[2][i]).intersection(GCP_names_all[1][i])).intersection(GCP_names_all[0][i])
-            GCP_names_common.append(GCP_names_common_oneSet)
-            print("{} {} {}".format(Img_names_all[0][i].values[0],Img_names_all[1][i].values[0],Img_names_all[2][i].values[0]))
-            print("Number of points : {}".format(len(GCP_names_common_oneSet)))
-            print(GCP_names_common_oneSet)
-            print("--------------------------------------")
-            GCP_nb_common.append(len(GCP_names_common_oneSet))
-        plt.subplot(122)    
-        plt.plot(GCP_nb_common)
-        plt.title('GCP found in all images of each timestamp')
-        plt.grid(True)
-        plt.xlabel('Image group index')
-        plt.ylabel('Number of points')
-        plt.ylim(0,nbInputGCPs)
+
         
 
     def clean_up_tmp(self):

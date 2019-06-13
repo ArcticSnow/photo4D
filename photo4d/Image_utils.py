@@ -7,7 +7,7 @@ To keep metadata when we transform the picture, we use the module pyxif (MIT Lic
 
 
 from datetime import datetime
-import sys, pyxif, time, os
+import pyxif, os
 import cv2 as cv
 import numpy as np
 
@@ -237,7 +237,7 @@ def process_clahe(in_path, tileGridSize, grey=False, out_path="", clip_limit=2):
     :param clip_limit: contrast limit, used to avoid too much noise
     """
     if out_path == "":
-        out_path = ".".join(inpath.split(".")[:-1]) + "_clahe.JPG"
+        out_path = ".".join(in_path.split(".")[:-1]) + "_clahe.JPG"
 
     # read input
     print("Processing CLAHE method on " + in_path.split("/")[-1])

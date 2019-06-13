@@ -99,7 +99,7 @@ def read_S2D_xmlfile(file_path):
     dic_img_measures = {}
     # read the file
     try:
-        with open(file_path, 'r') as xml:
+        with open(file_path, 'r'):
             # Parsing of xml
             tree = etree.parse(file_path)
             # loop on images
