@@ -9,11 +9,11 @@ Contributors by alphabetical orders:
 ## Description
 
 This project consists of an automated program to generate point cloud from time-lapse set of images from independent cameras. The software: 
-​      1) sorts images by timestamps, 
-​      2) assess the image quality based on lumincace and bluriness, 
-​      3) identify automatically GCPs through the stacks of images, 
-​      4) run Micmac to compute point clouds, and 
-​      5) convert point cloud to rasters. 
+​      1. sorts images by timestamps, 
+​      2. assess the image quality based on lumincace and bluriness, 
+​      3. identify automatically GCPs through the stacks of images, 
+​      4. run Micmac to compute point clouds, and 
+​      5. convert point cloud to rasters. (not implemented)
 
 The project should be based on open-source libraries, for public release. 
 
@@ -40,21 +40,14 @@ The project should be based on open-source libraries, for public release.
      pip install photo4d
      ```
 
-## Objectives
-
- 1. Obtain 2D snow cover extent map
- 2. Derive 3D maps for pairs of time-lpase pictures
- 3. improve design (targets, camera set up and settings, image preprocessing, number of camera...)
- 4. Assess accuracy, precision: compare to lidar, dGPS snow-deph measurements. What paramters have the largest influence on the results
- 5. try automating every steps of the algorithm, and combine scripts into one program (app)
- 6. Success??!
-
-## Use
+## Usage
 
 1. prepare your environment: 
-      - create a Python 3.6 virtual environment in which you install the required libraries (see above)
-      - Organize your photo with one folder per camera. For instance fodler /cam1 constains all the im ages of Camera 1.
-      - create a folder for the project with inside the project folder a folder called Images containing itself one folder per camera
+      - create a Python >= 3.6 virtual environment in which you install the required libraries (see above)
+      - create a folder for the project with inside the project folder a folder called Images containing itself one folder per
+      - Organize your photo with one folder per camera. For instance folder /cam1 constains all the images from Camera 1.
+       camera
+       
 ```bash
 ├── Project
     └── Images
@@ -72,8 +65,10 @@ The project should be based on open-source libraries, for public release.
 ############################################################
 ## Part 1
 
-# Set Project path
-myproj = Photo4d(project_path="point to project folder /Project")
+import photo4d as p4d
+
+# Create a new photo4d object by indicating the Project path
+myproj = p4d.Photo4d(project_path="point to project folder /Project")
 
 # Algorithm to sort images in triplets, and create the reference table with sets :date, valid set, image names
 myproj.sort_picture()
@@ -130,9 +125,7 @@ myproj.clean_up_tmp()
 ## Ressources
 
 - Micmac: http://micmac.ensg.eu/index.php/Accueil
-- relevant publications saved in Google drive
 - Image processing images: skimage, openCV, Pillow
-- rawpy, a package to open raw images in Python: https://pypi.python.org/pypi/rawpy  http://pythonhosted.org/rawpy/api/
 - python package to read exif data: https://pip.pypa.io/en/latest/user_guide/
 
 ## Development
