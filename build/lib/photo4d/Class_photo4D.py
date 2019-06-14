@@ -11,6 +11,7 @@ from os.path import join as opj
 import numpy as np
 from typing import Union
 from shutil import copyfile, rmtree, copytree
+from distutils.dir_util import copy_tree
 
 # Import project libary
 import photo4d.Process as proc
@@ -40,6 +41,7 @@ class Photo4d(object):
     GCP_DETECT_FILE = 'GCPs_detect-S2D.xml'
     GCP_NAME_FILE = 'GCPs_names.txt'
     shift=[410000, 6710000, 0]
+    useMask=False
     # Parameters
     distortion_model="Figee"
     
@@ -204,24 +206,20 @@ class Photo4d(object):
         os.chdir(self.project_path)
 
             
-    def create_mask(self, del_pictures=True):
+    def create_mask_masterIm(self, del_pictures=True, master_folder_id=0):
         '''
+        Create a mask on the image of the master_folder_id for the selected set
         Note : Only the mask of the central (MASTER) image is necessary
         '''
         
-        # add mkdir, and change dir
-        mask_path = opj(self.project_path, Photo4d.MASK_FOLDER)
-        if not os.path.exists(mask_path): os.makedirs(mask_path)
+        if not os.path.exists(self.tmp_path): os.makedirs(self.tmp_path)
         # select the set of good pictures to estimate initial orientation
         selected_line = self.sorted_pictures[self.selected_picture_set]
-        for i in range(len(self.cam_folders)):
-            in_path = opj(self.cam_folders[i], selected_line[i + 1])
-            out_path = opj(mask_path, selected_line[i + 1])
-            copyfile(in_path, out_path)
-            ds.exec_mm3d('mm3d SaisieMasqQT {}'.format(out_path))
-            if del_pictures:
-                os.remove(out_path)
-        self.masks = mask_path
+        in_path = opj(self.cam_folders[master_folder_id], selected_line[master_folder_id + 2])
+        out_path = opj(self.tmp_path, selected_line[master_folder_id + 2])
+        copyfile(in_path, out_path)
+        ds.exec_mm3d('mm3d SaisieMasqQT {} Name=Mask.tif'.format(out_path))
+        self.useMask=True
         
     def prepare_gcp_files(self, gcp_coords_file, file_format='N_X_Y_Z', display=True):
         '''
@@ -263,12 +261,12 @@ class Photo4d(object):
         if self.gcp_coord_file is None or self.gcp_names is None:
             print("ERROR prepare_gcp_files must be applied first")
         gcp_path = opj(self.project_path, Photo4d.GCP_FOLDER)
-        copytree(opj(gcp_path), opj(self.tmp_path))
+        copy_tree(opj(gcp_path), opj(self.tmp_path))
         # select the set of image on which to pick GCPs manually
         selected_line = self.sorted_pictures[self.selected_picture_set]
         file_set = "("
         for i in range(len(self.cam_folders)):
-            file_set += selected_line[i + 1] + "|"
+            file_set += selected_line[i + 2] + "|"
         file_set = file_set[:-1] + ")"
             
         commandSaisieAppuisInitQt='mm3d SaisieAppuisInitQt "{}" Ini {} {}'.format(file_set, self.GCP_NAME_FILE,
@@ -293,7 +291,7 @@ class Photo4d(object):
         selected_line = self.sorted_pictures[self.selected_picture_set]
         file_set = "("
         for i in range(len(self.cam_folders)):
-            file_set += selected_line[i + 1] + "|"
+            file_set += selected_line[i + 2] + "|"
         file_set = file_set[:-1] + ")"
 
         command='mm3d SaisieAppuisPredicQt "{}" Bascule-Ini {} {}'.format(file_set,
@@ -326,11 +324,19 @@ class Photo4d(object):
         if(doCampari):
             command = 'mm3d Campari {} Bascule-Ini Bascule GCP=[{},{},{},{}] AllFree=1'.format(file_set, self.GCP_COORD_FILE_INIT, self.GCP_PRECISION, self.GCP_PICK_FILE_2D, self.GCP_POINTING_PRECISION)
             print(command)
-            utils.exec_mm3d(command)
-            copytree(opj(self.tmp_path, 'Ori-Bascule'),  Photo4d.ORI_FINAL)
+            success, error  = utils.exec_mm3d(command)
+            if success == 0:
+                # copy orientation file
+                ori_path = opj(self.project_path,self.ORI_FINAL)
+                if os.path.exists(ori_path): rmtree(ori_path)
+                copytree(opj(self.tmp_path, Photo4d.ORI_FINAL), ori_path)
+            else:
+                print("ERROR Orientation failed\nerror : " + str(error))
              
         # Go back from tmp dir to project dir        
         os.chdir(self.project_path)
+        
+        
 
             
     def pick_ManualTiePoints(self):
@@ -347,7 +353,7 @@ class Photo4d(object):
         selected_line = self.sorted_pictures[self.selected_picture_set]
         file_set = "("
         for i in range(len(self.cam_folders)):
-            file_set += selected_line[i + 1] + "|"
+            file_set += selected_line[i + 2] + "|"
         file_set = file_set[:-1] + ")"
             
         command='mm3d SaisieAppuisPredicQt "{}" Ori-Bascule {} {}'.format(file_set,
@@ -369,7 +375,7 @@ class Photo4d(object):
 
         proc.process_all_timesteps(self.tmp_path, self.sorted_pictures, opj(self.project_path, Photo4d.RESULT_FOLDER),
                           clahe=clahe, tileGridSize_clahe=tileGridSize_clahe, zoomF=zoomF,
-                          master_folder_id=master_folder_id, Ori=Ori, DefCor=DefCor,
+                          master_folder_id=master_folder_id, Ori=Ori, useMask=self.useMask, DefCor=DefCor,
                           shift=shift, keep_rasters=keep_rasters, display_micmac=display)
 
 
@@ -382,7 +388,7 @@ class Photo4d(object):
             if type(img_or_index) == int:
                 self.selected_picture_set = img_or_index
                 print(
-                    "\n The current selected set is now {}".format(self.sorted_pictures[self.selected_picture_set][1:]))
+                    "\n The current selected set is now {}".format(self.sorted_pictures[self.selected_picture_set][2:]))
             elif type(img_or_index) == str:
                 found, i = False, 0
                 while (not found) and (i < len(self.sorted_pictures)):
@@ -390,7 +396,7 @@ class Photo4d(object):
                         found = True
                         self.selected_picture_set = i
                         print("\n The current selected set is now {}".format(
-                            self.sorted_pictures[self.selected_picture_set][1:]))
+                            self.sorted_pictures[self.selected_picture_set][2:]))
                     i += 1
                 if not found:
                     print('image {} not in sorted_pictures'.format(img_or_index))
@@ -414,12 +420,20 @@ class Photo4d(object):
                 
 if __name__ == "__main__":
     
-    # myproj = p4d.Photo4d(project_path=r"C:\Users\lucg\Desktop\Test_V1_2019")
+    ## Initialyze the project
+     myproj = p4d.Photo4d(project_path=r"C:\Users\lucg\Desktop\Test_V1_2019")
     # myproj.sort_picture()
     # myproj.check_picture_quality()
+    # myproj.prepare_gcp_files(r"C:\Users\lucg\Desktop\Test_V1_2019\GCPs_coordinates_manual.txt",file_format="N_X_Y_Z")
+    
+    ## Create a mask on one of the master images to limit the area where correlation is attempted
+    # myproj.create_mask_masterIm(1)
+    
+    ## Compute tie points throughout the stack
     # myproj.timeSIFT_orientation()
     ## TODO : mask tie points
-    # myproj.prepare_gcp_files(r"C:\Users\lucg\Desktop\Test_V1_2019\GCPs_coordinates_manual.txt",file_format="N_X_Y_Z")
+    
+    ## Deal with GCPs
     ## Select a set to input GCPs
     # myproj.set_selected_set("DSC02728.JPG")
     ## Input GCPs in 3 steps
@@ -431,70 +445,9 @@ if __name__ == "__main__":
         #myproj.set_selected_set("DSC02871.JPG")
         #myproj.pick_all_gcps()        
     #myproj.compute_transform(doCampari=True)
-    
-    ## FUNCTION TO CHANGE FOR TIMESIFT
-    # myproj.create_mask()
+
+    ## Do the dense matching
     # myproj.process_all_timesteps()
+    
+    ## Cleanup
     # myproj.clean_up_tmp()
-    
-    
-    
-    
-    
-    
-    #OLD STUFF
-    
-    
-    myproj = Photo4d(project_path=r"L:\Finse\Photo4D\Test_V1_2019")
-   # myproj = Photo4d(project_path=r"~/icemassME/Finse/Photo4D/2018-1pm")
-   # myproj.sort_picture()
-    #myproj.check_picture_quality()
-    
-    #myproj.set_selected_set("DSC02728.JPG")
-    #myproj.initial_orientation()
-    #myproj.create_mask()
-    #myproj.prepare_gcp_files(r"I:\icemass-users\lucg\Finse\Photo4D\2018-1pm\GCPs_coordinates_GNSS_Only.txt",file_format="N_X_Y_Z")
-    #myproj.pick_initial_gcps()
-    #myproj.compute_transform()
-    #myproj.pick_all_gcps()
-    #myproj.pick_gcp_final()
-    #myproj.compute_transform(doCampari=True)
-    
-
-    
-    
-    #TODO: function to clean micmac diurectory (if needed)
-    
-    #myproj.detect_GCPs()
-    #myproj.extract_GCPs()
-    #myproj.graph_detected_gcps(50)
-    #myproj.process(resol=4000)
-    # Part 1, sort and flag good picture set
-    # myproj.sort_picture()
-    # myproj.check_picture_quality()
-
-    # Part 2: Manual
-    # choose either:
-    # 		- Calibration, calibration of camera (TODO)
-    # 		- Orientation, estimate camera position
-
-    # myproj.selected_picture_set = -1  # by default get the last set of image. Change to the correct index where there are good quality images
-    # myproj.oriententation_intitial()
-
-    # myproj.selected_picture_set = -1
-    # myproj.create_mask()
-
-    # Part 3: Derive GCPS in image stack
-
-    # myproj.prepare_GCP_files("GCPs.txt")  # format the text file to
-
-    # myproj.selected_picture_set = -1
-    # myproj.pick_GCP()
-
-    # myproj.detect_GCPs()
-
-    # point GCP (manual)
-    # estimate on stack
-
-    # Part 4: Process images to point cloud
-    # myproj.process()
