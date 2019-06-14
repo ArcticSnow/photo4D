@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: photo4d
-Version: 0.2.0
+Version: 0.2.1
 Summary: Open source project to perform time-lapse photogrammetry
 Home-page: https://github.com/ArcticSnow/photo4D
 Author: S. Filhol, A. Perret, G. Sutter, and L. Girod
@@ -35,13 +35,15 @@ Description:
              - matplotlib
              - lxml
              - pillow
-             - pyxif (that needs to be downloaded from https://github.com/zenwerk/Pyxif)
+             - [pyxif](https://github.com/zenwerk/Pyxif) (that needs to be downloaded from https://github.com/zenwerk/Pyxif)
              ```sh
              wget https://github.com/zenwerk/Pyxif/archive/master.zip
              unzip Pyxif-master.zip
              cd Pyxif-master
              python setup.py install
              ```
+             - [PDAL](https://pdal.io/)
+             - json
         
          3. The package is available via Pypi
         
@@ -51,7 +53,7 @@ Description:
         
         ## Usage
         
-        1. prepare your environment: 
+        ### 1. prepare your environment: 
               - create a Python >= 3.6 virtual environment in which you install the required libraries (see above)
               - create a folder for the project with inside the project folder a folder called Images containing itself one folder per
               - Organize your photo with one folder per camera. For instance folder /cam1 constains all the images from Camera 1.
@@ -67,7 +69,9 @@ Description:
         ```
         
         
-        2. Set the path correctly in the file MicmacApp/Class_photo4D.py
+        ### 2. Use the Photo4d class to process the images through MicMac
+        
+        Set the path correctly in the file MicmacApp/Class_photo4D.py, and follow these steps
         
         ```python
         
@@ -131,6 +135,52 @@ Description:
         
         ```
         
+        ### 3. Process the point clouds with [PDAL](https://pdal.io/)
+        
+        **Currently Under Development**
+        
+        [PDAL](https://pdal.io/) is a python library to process point cloud. It has an extensive library of algorithms available, and here we wrapped a general method to filter and extract Digital Elevation Models (DEMs) from the point clouds derived in the previous step.
+        
+        Micmac produces point clouds in the format `.ply`. The functions in the python class `pcl_process()` can convert, filter and crop the `.ply` point clouds and save them as `.las` files. Then the function `convert_all_pcl2dem()` will convert all point clouds stored in `my_pcl.las_pcl_flist` to DEMs. 
+        
+        With the function `my_pcl.custom_pipeline()`, it is possible to build custom processing pipeline following the PDAL JSON syntax. This pipeline can then be executed by running the function `my_pcl.apply_custom_pipeline()`.
+        
+        See the source file [Class_pcl_processing.py](./photo4d/Class_pcl_processing.py) for more details.
+        
+        ```python
+        
+        # Create a pcl_class object, indication the path to the photo4d project
+        my_pcl = p4d.pcl_process(project_path="path_to_project_folder")
+        
+        my_pcl.resolution = 1  # set the resolution of the final DEMs
+        
+        # Set the bounding box the Region of Interest (ROI)
+        my_pcl.crop_xmin = 416100
+        my_pcl.crop_xmax = 416900
+        my_pcl.crop_ymin = 6715900
+        my_pcl.crop_ymax = 6716700
+        my_pcl.nodata = -9999
+        
+        # add path og the .ply point cloud files to the python class
+        my_pcl.add_ply_pcl()
+        
+        # filter the point clouds with pdal routine, and save resulting point clouds as .las file
+        my_pcl.filter_all_pcl()
+        
+        # add path of the .las files
+        my_pcl.add_las_pcl()
+        
+        # conver the .las point clouds to DEMs (geotiff)
+        my_pcl.convert_all_pcl2dem()
+        
+        # Extract Value orthophoto from RGB 
+        my_pcl.extract_all_ortho_value()
+        
+        ```
+        
+        After this section you have clean point clouds, as well as DEMs in GeoTiff ready!
+        
+        
         ## Ressources
         
         - Micmac: http://micmac.ensg.eu/index.php/Accueil
@@ -167,3 +217,4 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.6.0
 Description-Content-Type: text/markdown
+Provides-Extra: Required to use the class pcl_process()

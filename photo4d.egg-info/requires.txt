@@ -4,3 +4,8 @@ numpy
 matplotlib
 opencv-python
 pillow
+glob
+
+[Required to use the class pcl_process()]
+pdal
+json

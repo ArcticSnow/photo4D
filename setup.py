@@ -23,12 +23,12 @@ VERSION = None
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    'lxml', 'pandas', 'numpy', 'matplotlib', 'opencv-python', 'pillow'
+    'lxml', 'pandas', 'numpy', 'matplotlib', 'opencv-python', 'pillow', 'glob'
 ]
 
 # What packages are optional?
 EXTRAS = {
-    # 'fancy feature': ['django'],
+    'Required to use the class pcl_process()': ['pdal', 'json']
 }
 
 # The rest you shouldn't have to touch too much :)

@@ -2,6 +2,7 @@ LICENSE
 MANIFEST.in
 README.md
 setup.py
+photo4d/Class_pcl_processing.py
 photo4d/Class_photo4D.py
 photo4d/Detect_Sift.py
 photo4d/Image_utils.py
@@ -10,6 +11,7 @@ photo4d/Utils.py
 photo4d/XML_utils.py
 photo4d/__init__.py
 photo4d/__version__.py
+photo4d/pdal_python_filter.py
 photo4d.egg-info/PKG-INFO
 photo4d.egg-info/SOURCES.txt
 photo4d.egg-info/dependency_links.txt
