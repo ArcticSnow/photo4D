@@ -1,7 +1,7 @@
 import cv2 as cv
 import os
 
-from photo4d.Process import pictures_array_from_file
+#from photo4d.Process import pictures_array_from_file
 from photo4d.Image_utils import load_date
 import photo4d.XML_utils as uxml
 from photo4d.Utils import exec_mm3d
@@ -247,12 +247,12 @@ if __name__ == "__main__":
         ["C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/Mini_projet/Images/Cam_east",
          "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/Mini_projet/Images/Cam_mid",
          "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/Mini_projet/Images/Cam_west"],
-        pictures_array=pictures_array_from_file(
-            "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/Mini_projet/set_definition.txt"),
+    #    pictures_array=pictures_array_from_file(
+    #        "C:/Users/Alexis/Documents/Travail/Stage_Oslo/Grandeurnature/Pictures/Mini_projet/set_definition.txt"),
         display_micmac=False
-     )
-    print(df)
-    df.to_csv("C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/test_beau.csv", sep=",")
+    )
+    #print(df)
+    #df.to_csv("C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/test_beau.csv", sep=",")
     # df = pd.read_csv("C:/Users/Alexis/Documents/Travail/Stage_Oslo/photo4D/python_script/Stats/test_sift_camtot_new_gcp.csv")
     # result = extract_values(df, threshold=50, nb_values=5, max_dist=200, method="Median")
     # print(result[0])
