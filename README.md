@@ -17,6 +17,13 @@ This project consists of an automated program to generate point cloud from time-
 
 The project should be based on open-source libraries, for public release. 
 
+## Reference
+
+Filhol S., A. Perret, L. Girod, G. Sutte,r T. V. Schuler, J. F. Burkhart, 2019. Time‐lapse Photogrammetry of Distributed Snowdepth During Snowmelt. Water Resources Research. doi:10.1029/2018WR024530
+
+URL: https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2018WR024530
+
+
 ## Installation
 1. install the latest version of [micmac](https://micmac.ensg.eu/index.php/Install)
 
