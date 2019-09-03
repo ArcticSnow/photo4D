@@ -19,7 +19,7 @@ The project should be based on open-source libraries, for public release.
 
 ## Reference
 
-Filhol S., A. Perret, L. Girod, G. Sutte,r T. V. Schuler, J. F. Burkhart, 2019. Time‐lapse Photogrammetry of Distributed Snowdepth During Snowmelt. Water Resources Research. doi:10.1029/2018WR024530
+Filhol, S., Perret, A., Girod, L., Sutter, G., Schuler, T. V., and Burkhart, J. F.. ( 2019), Time‐lapse Photogrammetry of Distributed Snowdepth During Snowmelt. Water Resour. Res., 55. https://doi.org/10.1029/2018WR024530 
 
 URL: https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2018WR024530
 
