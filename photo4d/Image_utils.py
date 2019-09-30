@@ -80,7 +80,7 @@ def sort_pictures(folder_path_list, output_path, ext="jpg", time_interval=600):
                   
         sorted_pictures.append(pic_group)                 
         with open(output_path, 'a') as f:
-            f.write(pic_group[0] + "," + str(pic_group[1]) + "," + ",".join(str(pic_group[2:])) + "\n")
+            f.write(pic_group[0] + "," + str(pic_group[1]) + "," + str(pic_group[2:]) + "\n")
 
     end_str = "# {} good set of pictures found, {} uncomplete sets, on a total of {} sets".format(good, bad, good + bad)
     print(end_str)
@@ -108,7 +108,9 @@ def check_picture_quality(folder_list, output_path, pictures_array, lum_inf, blu
 
     with open(output_path, 'w') as f:
         f.write(
-            "# Pictures filtered with a minimum value of {} for brightness, {} for the variance of Laplacian\n".format(
+            "# Pictures filtered with a minimum value of {} for brightness, {} for the variance of the Laplacian\n".format(
+                lum_inf, blur_inf))
+        print("# Pictures filtered with a minimum value of {} for brightness, {} for the variance of the Laplacian\n".format(
                 lum_inf, blur_inf))
 
     good, bad = 0, 0
@@ -127,6 +129,7 @@ def check_picture_quality(folder_list, output_path, pictures_array, lum_inf, blu
                 if blur < min_blur:
                     min_blur = blur
 
+            print(pictures_array[i,0] + ' : Brightness = ' + str(lum) + ' : Blurriness = ' + str(blur))
             if min_lum < lum_inf or min_blur < blur_inf:
                 pictures_array[i, 1] = False
                 bad += 1
@@ -135,7 +138,7 @@ def check_picture_quality(folder_list, output_path, pictures_array, lum_inf, blu
 
     with open(output_path, 'a') as f:
         for line in pictures_array:
-            f.write(str(line[0]) + "," + str(line[1]) + "," + ",".join(str(line[2:])) + "\n")
+            f.write(str(line[0]) + "," + str(line[1]) + "," + str(line[2:]) + "\n")
         end_line = " {} good set of pictures found, {} rejected sets, on a total of {} sets".format(good, bad, good + bad)
         f.write("#" + end_line)
         print(end_line)
@@ -170,17 +173,23 @@ def load_bright(filename):
     :param filename: name/path of the file
     :return: float, level of brightness
 
-    TODO: Add a method to estimate BrightnessValue of image if the field is not available from picture EXIF.
     """
     try:
         zeroth_dict, exif_dict, gps_dict = pyxif.load(filename)
-        num,denom=exif_dict[pyxif.PhotoGroup.BrightnessValue][1]
-        brightness=num/denom
+        num,denom = exif_dict[pyxif.PhotoGroup.BrightnessValue][1]
+        brightness = num/denom
         return brightness
     except KeyError:
-        print("WARNING No brightness data for file " + filename)
-        print("Check if your exif data contains a 'BrightnessValue' tag ")
-        return None
+        try:
+            f_number = exif_dict[pyxif.PhotoGroup.FNumber][1][0]/exif_dict[pyxif.PhotoGroup.FNumber][1][0]
+            ISO_speed = exif_dict[pyxif.PhotoGroup.ISOSpeedRatings][1]
+            expo_time = exif_dict[pyxif.PhotoGroup.ExposureTime][1][0] / exif_dict[pyxif.PhotoGroup.ExposureTime][1][0]
+            brightness = np.log2(f_number**2) + np.log2(1/expo_time) - np.log2(2**(-7/4)*ISO_speed)
+            return brightness
+        except KeyError:
+            print("WARNING No brightness data for file " + filename)
+            print("Check if your exif data contains a 'BrightnessValue' tag ")
+            return None
     except FileNotFoundError:
         print("WARNING Could not find file " + filename )
         return None

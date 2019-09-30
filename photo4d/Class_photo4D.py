@@ -6,9 +6,10 @@ Program XXX Part I
 '''
 
 # import public library
-import os
+import os, glob
 from os.path import join as opj
 import numpy as np
+import pandas as pd
 from typing import Union
 from shutil import copyfile, rmtree, copytree
 from distutils.dir_util import copy_tree
@@ -60,6 +61,7 @@ class Photo4d(object):
             self.cam_folders = [opj(self.project_path, Photo4d.IMAGE_FOLDER, cam) for cam in
                                 os.listdir(opj(self.project_path, Photo4d.IMAGE_FOLDER))]
             self.nb_folders = len(self.cam_folders)
+            self.cam_names = [x.split('/')[-1] for x in self.cam_folders].sort()
             print("Added {} camera folders : \n  {}".format(self.nb_folders, '\n  '.join(self.cam_folders)))
         else:
             print('You must create a folder "' + Photo4d.IMAGE_FOLDER + '/" containing your camera folders')
@@ -249,7 +251,42 @@ class Photo4d(object):
         else:
             print("ERROR prepare_GCP_files(): Check file format and file delimiter. Delimiter is any space")
             return 0
-            
+
+    def prepare_CAM_file(self, cam_pos_file, file_format='N_X_Y_Z', display=False):
+        '''
+
+        :param cam_pos_file:
+        :param file_format:
+        :param display:
+        :param cam_distance:
+        :return:
+        '''
+        cam = pd.read_csv(os.path.join(self.project_path, cam_pos_file), sep=' ', names=(file_format.split('_')), skiprows=1)
+        all_images = pd.DataFrame()
+        for my_cam in self.cam_folders:
+            df = pd.DataFrame()
+            df['N'] = os.listdir(my_cam)
+            df['X'] = np.repeat(cam.X.loc[cam.N.values == os.path.split(my_cam)[-1]].values, df.N.shape[0])
+            df['Y'] = np.repeat(cam.Y.loc[cam.N.values == os.path.split(my_cam)[-1]].values, df.N.shape[0])
+            df['Z'] = np.repeat(cam.Z.loc[cam.N.values == os.path.split(my_cam)[-1]].values, df.N.shape[0])
+
+            all_images = all_images.append(df, ignore_index=True)
+        #print(all_images)
+        all_images = all_images[file_format.split('_')]
+        Images_pos = 'Images_pos.txt'
+        os.chdir(self.tmp_path)
+        with open(Images_pos, 'w') as file:
+            file.write('#F=' + ' '.join(file_format.split('_')) + '\n')
+            all_images.to_csv(file, index=False, sep=' ', header=False, mode='a')
+
+        # 1. convert CAM position textfile to xml with oriconvert
+        commandConv = 'mm3d OriConvert #F={} {} RAWGNSS_N'.format(file_format, Images_pos,
+                                                                        self.GCP_PICK_FILE_2D)
+        print(commandConv)
+        success, error = utils.exec_mm3d(commandConv)
+        os.chdir(self.project_path)
+
+
     def pick_initial_gcps(self):
         '''
         Function to pick GCP locations on the reference set of images with no a priori.
@@ -303,7 +340,7 @@ class Photo4d(object):
         # Go back from tmp dir to project dir        
         os.chdir(self.project_path)
         
-    def compute_transform(self, doCampari=False):
+    def compute_transform(self, doCampari=False, CAM_position=False, GCP_position=True):
         '''
         Function to apply the transformation computed from the GCPs to all images.
         
@@ -311,28 +348,53 @@ class Photo4d(object):
         '''
 
         os.chdir(self.tmp_path)
+        if GCP_position:
+            CAM_position=False
+        elif CAM_position:
+            GCP_position=False
+        elif not GCP_position and  not CAM_position:
+            print('Must choose wither CAM position or GCP position')
 
         # select all the images
         file_set = ".*" + self.ext
-        
-        commandBasc = 'mm3d GCPBascule {} Ini Bascule-Ini {} {}'.format(file_set,
-                                                                   self.GCP_COORD_FILE_INIT,
-                                                                   self.GCP_PICK_FILE_2D)
-        print(commandBasc)
-        utils.exec_mm3d(commandBasc)
-        
-        if(doCampari):
-            command = 'mm3d Campari {} Bascule-Ini Bascule GCP=[{},{},{},{}] AllFree=1'.format(file_set, self.GCP_COORD_FILE_INIT, self.GCP_PRECISION, self.GCP_PICK_FILE_2D, self.GCP_POINTING_PRECISION)
-            print(command)
-            success, error  = utils.exec_mm3d(command)
-            if success == 0:
-                # copy orientation file
-                ori_path = opj(self.project_path,self.ORI_FINAL)
-                if os.path.exists(ori_path): rmtree(ori_path)
-                copytree(opj(self.tmp_path, Photo4d.ORI_FINAL), ori_path)
-            else:
-                print("ERROR Orientation failed\nerror : " + str(error))
-             
+
+        if GCP_position:
+            commandBasc = 'mm3d GCPBascule {} Ini Bascule-Ini {} {}'.format(file_set,
+                                                                       self.GCP_COORD_FILE_INIT,
+                                                                       self.GCP_PICK_FILE_2D)
+            print(commandBasc)
+            utils.exec_mm3d(commandBasc)
+
+            if(doCampari):
+                command = 'mm3d Campari {} Bascule-Ini Bascule GCP=[{},{},{},{}] AllFree=1'.format(file_set, self.GCP_COORD_FILE_INIT, self.GCP_PRECISION, self.GCP_PICK_FILE_2D, self.GCP_POINTING_PRECISION)
+                print(command)
+                success, error  = utils.exec_mm3d(command)
+                if success == 0:
+                    # copy orientation file
+                    ori_path = opj(self.project_path,self.ORI_FINAL)
+                    if os.path.exists(ori_path): rmtree(ori_path)
+                    copytree(opj(self.tmp_path, Photo4d.ORI_FINAL), ori_path)
+                else:
+                    print("ERROR Orientation failed\nerror : " + str(error))
+        if CAM_position:
+            # 2. Center bascule  from the orientation out of Tapas to RAWGNSS_N
+            commandBasc = 'mm3d CenterBascule {} Ini RAWGNSS_N Bascule-Ini'.format(file_set)
+            print(commandBasc)
+            utils.exec_mm3d(commandBasc)
+
+            if(doCampari):
+                #mm3d Campari .*JPG Ground_Init_RTL Ground_RTL EmGPS=[RAWGNSS_N,5] AllFree=1 SH=_mini
+                command = 'mm3d Campari {} Bascule-Ini Bascule EmGPS=[RAWGNSS_N,5] AllFree=1 SH=_mini'.format(file_set)
+                print(command)
+                success, error = utils.exec_mm3d(command)
+                if success == 0:
+                    # copy orientation file
+                    ori_path = opj(self.project_path, self.ORI_FINAL)
+                    if os.path.exists(ori_path): rmtree(ori_path)
+                    copytree(opj(self.tmp_path, Photo4d.ORI_FINAL), ori_path)
+                else:
+                    print("ERROR Orientation failed\nerror : " + str(error))
+
         # Go back from tmp dir to project dir        
         os.chdir(self.project_path)
         

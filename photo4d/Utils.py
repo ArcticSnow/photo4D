@@ -22,6 +22,7 @@ def exec_mm3d(command, display=True):
         print("WARNING The command must begin with mm3d\n")
         return 0, None
 
+    print(command)
     process = Popen(command.split(" "), stdout=PIPE, stderr=STDOUT)
     for line_bin in iter(process.stdout.readline, b''):
         try:

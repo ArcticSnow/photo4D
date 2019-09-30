@@ -23,7 +23,7 @@ VERSION = None
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    'lxml', 'pandas', 'numpy', 'matplotlib', 'opencv-python', 'pillow', 'glob'
+    'lxml', 'pandas', 'numpy', 'matplotlib', 'opencv-python', 'pillow'
 ]
 
 # What packages are optional?
