@@ -38,6 +38,7 @@ URL: https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2018WR024530
      wget https://github.com/zenwerk/Pyxif/archive/master.zip
      unzip master.zip
      cd Pyxif-master
+     mv LICENCE.txt LICENSE.txt   # As there is a typo in the License filename
      python setup.py install
      ```
      - [PDAL](https://pdal.io/)
