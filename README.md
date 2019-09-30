@@ -36,7 +36,7 @@ URL: https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2018WR024530
      - [pyxif](https://github.com/zenwerk/Pyxif) (that needs to be downloaded from https://github.com/zenwerk/Pyxif)
      ```sh
      wget https://github.com/zenwerk/Pyxif/archive/master.zip
-     unzip Pyxif-master.zip
+     unzip master.zip
      cd Pyxif-master
      python setup.py install
      ```
