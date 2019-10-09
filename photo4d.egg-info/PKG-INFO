@@ -26,6 +26,13 @@ Description:
         
         The project should be based on open-source libraries, for public release. 
         
+        ## Reference
+        
+        Filhol, S., Perret, A., Girod, L., Sutter, G., Schuler, T. V., and Burkhart, J. F.. ( 2019), Time‐lapse Photogrammetry of Distributed Snowdepth During Snowmelt. Water Resour. Res., 55. https://doi.org/10.1029/2018WR024530 
+        
+        URL: https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2018WR024530
+        
+        
         ## Installation
         1. install the latest version of [micmac](https://micmac.ensg.eu/index.php/Install)
         
@@ -38,8 +45,9 @@ Description:
              - [pyxif](https://github.com/zenwerk/Pyxif) (that needs to be downloaded from https://github.com/zenwerk/Pyxif)
              ```sh
              wget https://github.com/zenwerk/Pyxif/archive/master.zip
-             unzip Pyxif-master.zip
+             unzip master.zip
              cd Pyxif-master
+             mv LICENCE.txt LICENSE.txt   # As there is a typo in the License filename
              python setup.py install
              ```
              - [PDAL](https://pdal.io/)

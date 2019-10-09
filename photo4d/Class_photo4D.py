@@ -172,6 +172,8 @@ class Photo4d(object):
                             tileGridSize_clahe=8):
         '''
         Function to initialize camera orientation of the reference set of images using the Micmac command Tapas
+
+        :param resolution:
         '''
         # change from working dir to tmp dir
         os.chdir(self.tmp_path)
@@ -252,7 +254,7 @@ class Photo4d(object):
             print("ERROR prepare_GCP_files(): Check file format and file delimiter. Delimiter is any space")
             return 0
 
-    def prepare_CAM_file(self, cam_pos_file, file_format='N_X_Y_Z', display=False):
+    def prepare_Camera_file(self, cam_pos_file, file_format='N_X_Y_Z', display=False):
         '''
 
         :param cam_pos_file:
