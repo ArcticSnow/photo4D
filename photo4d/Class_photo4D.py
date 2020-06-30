@@ -1,6 +1,9 @@
 ''' 
 Program XXX Part I
 
+TODO:
+    - add the possibility to treat each camera independently with the file MicMac-LocolChantierDescriptuer.xml
+    Generate automaticaly this xml file based on the camera names, and number
 
 
 '''

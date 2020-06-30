@@ -1,0 +1,29 @@
+<Global>
+  <ChantierDescripteur >
+    <KeyedNamesAssociations>
+            <Calcs>
+                 <Arrite>  1 1 </Arrite>
+                 <Direct>
+                       <PatternTransform> .*_1.JPG  </PatternTransform> <!-- Regular expressions of the group of images with the following camera model -->
+                       <CalcName> cam1 </CalcName> <!-- Name of the camera for these images -->
+                 </Direct>
+             </Calcs>
+            <Calcs>
+                 <Arrite>  1 1 </Arrite>
+                 <Direct>
+                       <PatternTransform> .*_2.JPG  </PatternTransform> <!-- Regular expressions of the group of images with the following camera model -->
+                       <CalcName> cam2 </CalcName> <!-- Name of the camera for these images -->
+                 </Direct>
+             </Calcs>
+            <Calcs>
+                 <Arrite>  1 1 </Arrite>
+                 <Direct>
+                       <PatternTransform> .*_3.JPG  </PatternTransform> <!-- Regular expressions of the group of images with the following camera model -->
+                       <CalcName> cam3 </CalcName> <!-- Name of the camera for these images -->
+                 </Direct>
+             </Calcs>
+             <Key>   NKS-Assoc-STD-CAM  </Key>
+    </KeyedNamesAssociations>
+	
+  </ChantierDescripteur>
+</Global>

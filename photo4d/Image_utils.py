@@ -10,36 +10,36 @@ from datetime import datetime
 import pyxif, os
 import cv2 as cv
 import numpy as np
+import photo4d.Utils as utils
 
 
-
-def sort_pictures(folder_path_list, output_path, ext="jpg", time_interval=600):
+def sort_pictures(folder_path_list, output_path, ext="jpg", time_interval=600, date_in_filename=False, date_pattern=None):
     """
     Regroup pictures from different folders if they are taken within timeInterval seconds of interval.
     Result is stored in an array/file,
-    :param folder_path_list: list of the path to folders containing pictures, each folder is for one camera
-    :param output_path: path of the output .txt file containing picture sets
+    :param folder_path_list: list of the path to folders containing pictures, One folder must correspond to one camera (e.g. cam1/ cam2/ cam3/)
+    :param output_path: path+filename of the output .txt file containing picture sets
     :param ext: extension of the pictures
     :param time_interval: interval in seconds, with corresponds to the maximum time elapsed between the shooting of pics
     :return: array with the sorted pictures. For each set a boolean is added, always True, but can be modified later
     """
     print("\n Collecting files\n..........................................")
     # create a list containing image names and dates for each folder
-    list = []
+    list_im = []
     for folder_path in folder_path_list:
         image_date_list = []
         flist = os.listdir(folder_path)
         for filename in flist:
             try:
                 if filename.split(".")[-1].lower() == ext.lower():
-                    image_date_list.append((filename, load_date(os.path.join(folder_path,filename))))
+                    image_date_list.append((filename, load_date(os.path.join(folder_path,filename), date_in_filename, date_pattern )))
             except IndexError:
                 pass
-        list.append(image_date_list)
-    if len(list) < 1:
+        list_im.append(image_date_list)
+    if len(list_im) < 1:
         print("WARNING not enough folder\nTwo or more folders are needed to sort files")
         return None
-    elif [] in list:
+    elif [] in list_im:
         print("WARNING No image found in One or many folder(s)")
         return None
 
@@ -50,17 +50,17 @@ def sort_pictures(folder_path_list, output_path, ext="jpg", time_interval=600):
 
     good, bad = 0, 0  # counters for correct and wrong sets
     # loop on the image of the first folder
-    for image_ref in list[0]:
+    for image_ref in list_im[0]:
         date_ref = image_ref[1]
-        pic_group = np.empty(len(list) + 2, dtype=object)
+        pic_group = np.empty(len(list_im) + 2, dtype=object)
         pic_group[0] = date_ref.strftime("%Y-%m-%dT%H-%M-%S")
         pic_group[1] = False  # the pic_group[0] is a boolean, True if all a picture is found in every folder
         pic_group[2] = image_ref[0]
         # for_file = [image_ref[0]]  # list of the images taken within the interval
 
         # check for pictures taken whithin the interval
-        for j in range(1, len(list)):
-            folder = list[j]  # list of the (filename,date) of one folder
+        for j in range(1, len(list_im)):
+            folder = list_im[j]  # list of the (filename,date) of one folder
             i, found = 0, False
             while not found and i < len(folder):
                 date_var = folder[i][1]
@@ -90,7 +90,7 @@ def sort_pictures(folder_path_list, output_path, ext="jpg", time_interval=600):
 
 
 
-def check_picture_quality(folder_list, output_path, pictures_array, lum_inf, blur_inf):
+def check_picture_quality(folder_list, output_path, pictures_array, lum_inf=1, blur_inf=6):
     """
     This function is supposed to be called after sort_pictures, as it uses the kind of array created by sort_pictures,
     which could be either collected from the return value of the function, or the file "linked_files.txt" created in
@@ -99,11 +99,12 @@ def check_picture_quality(folder_list, output_path, pictures_array, lum_inf, blu
     inferior to blur_min
     :param folder_list:
     :param output_path:
-    :param pictures_array:
+    :param pictures_array: array with pictures name and sort output 
     :param lum_inf:
     :param blur_min:
     :return: same array, but some booleans will be set to False
     """
+   
     print("\n Checking pictures\n..........................................")
 
     with open(output_path, 'w') as f:
@@ -146,18 +147,35 @@ def check_picture_quality(folder_list, output_path, pictures_array, lum_inf, blu
 
 
 
-def load_date(filename):
+def load_date(filename, date_in_fname=False, date_pattern=None):
     """
     Load date of the shot, according to te image metadata
     :param filename: name/path of the file
+    :param date_in_fname: Boolean for using filename as date or not
+    :param date_pattern: a list of pattern using strptime formating system, e.g. ['cam1_%Y%m%d_%H%M.JPG','cam2_%Y%m%d_%H%M.JPG']. 
     :return: datetime format
     """
     try:
-        zeroth_dict, exif_dict, gps_dict = pyxif.load(filename)
-        date,time=exif_dict[pyxif.PhotoGroup.DateTimeOriginal][1].split(" ")
-        year, month,day = date.split(":")
-        hour,minute,sec = time.split(":")
-        dateimage= datetime(int(year), int(month), int(day), int(hour), int(minute) ,int(sec))
+        if date_in_fname:
+            if date_pattern is None:
+                print('ERROR: if using filename for date, date_pattern must be given')
+                return
+            else:
+                if date_pattern.__len__()>1:
+                    for pat in date_pattern:
+                        try:
+                            dateimage = datetime.strptime(filename.split('/')[-1], pat)
+                        except:
+                            continue
+                else:
+                    dateimage = datetime.strptime(filename.split('/')[-1], date_pattern)
+
+        else:
+            zeroth_dict, exif_dict, gps_dict = pyxif.load(filename)
+            date,time=exif_dict[pyxif.PhotoGroup.DateTimeOriginal][1].split(" ")
+            year, month,day = date.split(":")
+            hour,minute,sec = time.split(":")
+            dateimage= datetime(int(year), int(month), int(day), int(hour), int(minute) ,int(sec))
         return dateimage
     except KeyError:
         print("WARNING No date for file " + filename)

@@ -27,12 +27,12 @@ def voxelGrid(ins, outs):
 		float(pdalargs['Zmax'])]
 	leaf = float(pdalargs['leaf'])
 
-	df = pd.DataFrame({'X' : ins['X'] ,
-		'Y' : ins['Y'] ,
-		'Z' : ins['Z'],
-		'Red':ins['Red'],
-		'Green':ins['Green'],
-		'Blue':ins['Blue']})
+	df = pd.DataFrame({'X': ins['X'],
+		'Y': ins['Y'],
+		'Z': ins['Z'],
+		'Red': ins['Red'],
+		'Green': ins['Green'],
+		'Blue': ins['Blue']})
 
 	for i in range(0,6):
 		if ROI[i]==-9999:
