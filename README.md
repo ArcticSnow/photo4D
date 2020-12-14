@@ -23,6 +23,7 @@ Filhol, S., Perret, A., Girod, L., Sutter, G., Schuler, T. V., and Burkhart, J. 
 
 URL: https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2018WR024530
 
+Sample dataset: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1745680.svg)](https://doi.org/10.5281/zenodo.1745680)
 
 ## Installation
 1. install the latest version of [micmac](https://micmac.ensg.eu/index.php/Install)
